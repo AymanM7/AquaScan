@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Motion (Phase 00): panel entrances use framer-motion springs
+  type: "spring", stiffness: 300, damping: 30 — not ease-in-out for hero work.
+  Score bars: 80ms stagger. Map buildings: 30ms stagger, scale 0→1.
+  Genome hexes: ~2.4s breathe, 200ms offset per hex.
+*/
+
+:root {
+  --color-bg-primary: #060d1a;
+  --color-bg-surface: #0d1b2e;
+  --color-bg-surface-2: #142236;
+  --color-accent-teal: #00e5cc;
+  --color-accent-amber: #f5a623;
+  --color-accent-blue: #60a5fa;
+  --color-accent-green: #4ade80;
+  --color-accent-purple: #a78bfa;
+  --color-accent-coral: #fb7185;
+  --color-text-primary: #e8f4f8;
+  --color-text-secondary: #7a95b0;
+  --color-text-mono: #00e5cc;
+  --color-border: rgba(0, 229, 204, 0.15);
+  --color-border-active: rgba(0, 229, 204, 0.6);
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply min-h-screen bg-bg-primary font-sans text-content-primary;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
