@@ -141,9 +141,9 @@ export default function ComparePage() {
     <div className="min-h-screen bg-bg-primary">
       <AppNav />
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="font-display text-3xl text-content-primary">State battle arena</h1>
+        <h1 className="font-display text-3xl font-bold text-content-primary">State Battle Arena</h1>
         <p className="mt-1 text-sm text-content-secondary">
-          Two markets enter. One narrative wins. {DEMO_MODE ? "Demo mode uses instant verdict fallback." : ""}
+          Head-to-head market comparison. Select two states. The data decides.
         </p>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_auto_1fr]">
@@ -300,13 +300,13 @@ function StateColumn({
                 const w = pickWinner(b.id, profile, opponent);
                 const mine = side === "left" ? w === "a" : w === "b";
                 const label =
-                  w === "tie" ? "Tie" : mine ? "Winner" : "2nd";
+                  w === "tie" ? "Tie" : mine ? "🏆 Winner" : "2nd";
                 const cls =
                   w === "tie"
-                    ? "border-accent-teal text-accent-teal"
+                    ? "border-accent-teal/50 text-accent-teal bg-accent-teal/5"
                     : mine
-                      ? "border-accent-amber text-accent-amber"
-                      : "border-edge text-content-secondary";
+                      ? "border-accent-amber/50 text-accent-amber bg-accent-amber/10 font-semibold"
+                      : "border-edge text-content-secondary/60";
                 return (
                   <span
                     key={b.id}

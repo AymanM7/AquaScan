@@ -422,6 +422,10 @@ async def _load_building_detail_for_scoring(
             sales_tax_exempt=bool(incentive.get("sales_tax_exempt")),
             property_tax_exempt=bool(incentive.get("property_tax_exempt")),
         )
+        eff = getattr(row_, "effective_catchment_sqft", None)
+        usb = getattr(row_, "usable_footprint_sqft", None)
+        ct_count = getattr(row_, "ct_count", None)
+        ct_demand = getattr(row_, "ct_demand_tier", None)
         return BuildingSummary(
             id=str(row_.id),
             name=row_.name or "",
@@ -430,6 +434,8 @@ async def _load_building_detail_for_scoring(
             state=row_.state,
             sector=row_.sector or "",
             roof_sqft=row_.roof_sqft,
+            effective_catchment_sqft=int(eff) if eff else int(row_.roof_sqft * 0.90),
+            usable_footprint_sqft=int(usb) if usb else int(row_.roof_sqft * 0.73),
             centroid_lat=float(row_.lat or 0),
             centroid_lng=float(row_.lon or 0),
             polygon_geojson=_polygon_geometry(row_.poly_gj)
@@ -439,6 +445,8 @@ async def _load_building_detail_for_scoring(
             genome_archetype="",
             ct_detected=bool(row_.ct_detected) if row_.ct_detected is not None else False,
             ct_confidence=float(row_.ct_confidence or 0),
+            ct_count=int(ct_count or 0),
+            ct_demand_tier=str(ct_demand or "None"),
             annual_gallons=h.annual_gallons,
             payback_years=h.payback_years,
             drought_label=row_.drought_label or "None",
@@ -649,8 +657,8 @@ async def compute_full_score(
     )
 
 
-async def hydro_deliberation_class(building: BuildingDetail) -> str:
-    """PHASE_06 — lightweight local classifier to avoid extra LLM calls when keys missing."""
+def hydro_deliberation_class(building: BuildingDetail) -> str:
+    """Lightweight local classifier for dominant opportunity thesis."""
     if building.ct_detected and float(building.ct_confidence or 0.0) >= 0.7:
         return "cooling_reuse"
     fz = (building.flood_zone or "").upper()

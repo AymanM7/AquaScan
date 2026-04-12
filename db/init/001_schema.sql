@@ -12,6 +12,8 @@ CREATE TABLE buildings (
   zip VARCHAR(10),
   sector VARCHAR(50),         -- 'Data Center','Logistics','Manufacturing','Hospital','University'
   roof_sqft INTEGER NOT NULL,
+  effective_catchment_sqft INTEGER,    -- gross minus obstructions (HVAC, skylights)
+  usable_footprint_sqft INTEGER,      -- after setbacks & access paths
   area_confidence FLOAT,       -- 0.0–1.0
   name VARCHAR(200),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -25,13 +27,21 @@ CREATE TABLE cv_results (
   building_id UUID REFERENCES buildings(id),
   ct_detected BOOLEAN DEFAULT FALSE,
   ct_confidence FLOAT,          -- 0.0–1.0
+  ct_count INTEGER DEFAULT 0,   -- number of cooling towers
+  ct_type VARCHAR(100),         -- 'Induced-Draft Rectangular','Cross-Flow','Forced-Draft'
+  ct_arrangement VARCHAR(100),  -- 'Clustered, NW corner','Distributed'
+  ct_demand_tier VARCHAR(20),   -- 'High','Medium','None'
+  est_cooling_consumption_gal_yr FLOAT,  -- estimated annual cooling water
   ct_boxes JSONB,               -- [{x,y,w,h,confidence}, ...]
   roof_mask_url TEXT,
   roof_confidence FLOAT,
+  effective_mask_url TEXT,       -- mask for effective catchment
+  usable_mask_url TEXT,          -- mask for usable footprint
   imagery_source VARCHAR(50),   -- 'NAIP','Sentinel-2'
   analysis_date DATE,
   raw_chip_url TEXT,
-  masked_chip_url TEXT
+  masked_chip_url TEXT,
+  gemini_analysis_text TEXT
 );
 
 -- Climate and environmental data
@@ -180,4 +190,27 @@ CREATE TABLE login_debriefs (
   script_text TEXT NOT NULL,
   elevenlabs_audio_url TEXT,
   played_at TIMESTAMPTZ
+);
+
+-- Per-building incentive stack (aggregated applicable programs)
+CREATE TABLE incentive_stacks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  building_id UUID REFERENCES buildings(id),
+  applicable_programs JSONB NOT NULL DEFAULT '[]',  -- [{program_name, type, value, eligibility, source_url}]
+  combined_estimate_usd FLOAT DEFAULT 0,
+  stack_generated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Texas reference case (Grundfos CBS Brookshire)
+CREATE TABLE texas_reference_case (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_name VARCHAR(200) NOT NULL,
+  project_value_usd FLOAT NOT NULL,
+  abatement_pct FLOAT NOT NULL,
+  abatement_years INTEGER NOT NULL,
+  county_tax_rate FLOAT NOT NULL,
+  annual_savings_usd FLOAT NOT NULL,
+  total_savings_usd FLOAT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );

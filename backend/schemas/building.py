@@ -15,6 +15,8 @@ class BuildingSummary(BaseModel):
     state: str
     sector: str
     roof_sqft: int
+    effective_catchment_sqft: int = 0
+    usable_footprint_sqft: int = 0
     centroid_lat: float
     centroid_lng: float
     polygon_geojson: dict[str, Any]
@@ -23,6 +25,8 @@ class BuildingSummary(BaseModel):
     genome_archetype: str
     ct_detected: bool
     ct_confidence: float
+    ct_count: int = 0
+    ct_demand_tier: str = "None"
     annual_gallons: float
     payback_years: float
     drought_label: str
@@ -35,7 +39,12 @@ class BuildingDetail(BuildingSummary):
     roof_mask_url: str | None
     raw_chip_url: str | None
     masked_chip_url: str | None
+    effective_mask_url: str | None = None
+    usable_mask_url: str | None = None
     ct_boxes: list[dict[str, Any]]
+    ct_type: str = ""
+    ct_arrangement: str = ""
+    est_cooling_consumption_gal_yr: float = 0.0
     water_rate_per_kgal: float
     sewer_rate_per_kgal: float
     stormwater_fee_annual: float
@@ -68,6 +77,9 @@ class BuildingDetail(BuildingSummary):
     stormwater_fee_avoidance: float = 0.0
     savings_curve: list[dict[str, float | int]] = []
     hydro_thesis: str = "rain_roi"
+    incentive_stack: list[dict[str, Any]] = []
+    combined_incentive_estimate: float = 0.0
+    texas_reference_case: dict[str, Any] | None = None
 
 
 class ViabilityScoreResponse(BaseModel):

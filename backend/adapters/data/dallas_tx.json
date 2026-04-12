@@ -4,17 +4,83 @@
   "state": "TX",
   "programs": [
     {
-      "name": "Texas Commercial Rainwater Rebate",
-      "rebate_usd": 5000,
-      "mandate_threshold_sqft": null,
-      "eligibility": "commercial buildings with roof >10,000 sqft"
+      "name": "Dallas Water Utilities ICI Rebate Program",
+      "type": "Utility Rebate",
+      "rebate_usd": 100000,
+      "description": "Up to $100,000 per project for commercial/industrial customers",
+      "eligibility": "Commercial and industrial water customers in Dallas Water Utilities service area",
+      "source_url": "https://dallascityhall.com/departments/waterutilities/Pages/Rebates-and-Incentives.aspx"
+    },
+    {
+      "name": "Texas Water-Efficient Products Sales Tax Exemption",
+      "type": "Tax Exemption",
+      "pct": 8.25,
+      "description": "6.25% state + up to 2% local sales tax avoided on qualifying water-efficient equipment",
+      "eligibility": "All qualifying rainwater harvesting and water-efficient equipment in Texas",
+      "statute": "Texas Tax Code §151.355",
+      "source_url": "https://comptroller.texas.gov/taxes/publications/96-1045.php"
+    },
+    {
+      "name": "Water Conservation Property Tax Exemption (§11.32)",
+      "type": "Tax Exemption",
+      "pct_range": "0-100",
+      "description": "0%–100% of approved assessed value, dependent on local taxing-unit adoption",
+      "eligibility": "Case-by-case — depends on local taxing-unit adoption",
+      "statute": "Texas Tax Code §11.32",
+      "source_url": "https://statutes.capitol.texas.gov/Docs/TX/htm/TX.11.htm"
+    },
+    {
+      "name": "Chapter 312 Tax Abatement",
+      "type": "Tax Abatement",
+      "description": "Modeled on Grundfos CBS Brookshire: 60% abatement for 10 years. ~$146,500/yr county savings on $43.9M project",
+      "eligibility": "Industrial and manufacturing facilities — county dependent",
+      "statute": "Texas Tax Code Chapter 312",
+      "reference_case": {
+        "project": "Grundfos CBS Brookshire",
+        "value_usd": 43900000,
+        "abatement_pct": 60,
+        "years": 10,
+        "county_rate": 0.00556187,
+        "annual_savings": 146500,
+        "total_savings": 1460000
+      },
+      "source_url": "https://comptroller.texas.gov/economy/local/ch312/"
+    },
+    {
+      "name": "Texas Enterprise Zone Program",
+      "type": "State Grant",
+      "tiers": {
+        "Half Enterprise": 625000,
+        "Enterprise": 1250000,
+        "Double Jumbo": 2500000,
+        "Triple Jumbo Project": 3750000
+      },
+      "description": "State sales/use tax refund caps ranging $625K–$3.75M by project tier",
+      "eligibility": "Based on building scale and estimated qualified jobs/spending",
+      "source_url": "https://gov.texas.gov/business/page/texas-enterprise-zone-program"
+    },
+    {
+      "name": "Texas Enterprise Fund",
+      "type": "State Grant",
+      "per_job_range": "$1,000–$10,000",
+      "description": "$1,000–$10,000 per qualified job grant for manufacturing and industrial facilities",
+      "eligibility": "Manufacturing and industrial facilities creating qualified jobs",
+      "source_url": "https://gov.texas.gov/business/page/texas-enterprise-fund"
+    },
+    {
+      "name": "Freeport Exemption",
+      "type": "Tax Exemption",
+      "description": "Up to 100% property tax exemption on qualifying inventory shipped within 175 days",
+      "eligibility": "Logistics and distribution buildings with qualifying inventory",
+      "source_url": "https://comptroller.texas.gov/taxes/property-tax/exemptions/freeport-exemption.php"
     }
   ],
   "sales_tax_exempt": true,
+  "sales_tax_pct": 8.25,
   "sales_tax_statute": "Texas Tax Code §151.355",
   "property_tax_exempt": true,
   "property_tax_statute": "Texas Tax Code §11.32",
   "stormwater_credit_pct": 0.0,
   "green_infra_grant_max": 0,
-  "notes": "Sales and property tax exemptions apply to rainwater harvesting systems"
+  "notes": "Comprehensive Texas incentive stack with verified state and city programs"
 }

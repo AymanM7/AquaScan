@@ -55,8 +55,8 @@ A role-gated page (visible to `grundfos_rep` and `grundfos_manager` only via Aut
 
 ## Core Features
 
-**Physical Intelligence (CV Engine)**
-Satellite and aerial imagery from NAIP (60cm resolution) and Sentinel-2 is processed using SAM 2 semantic segmentation and Grounding DINO zero-shot detection to extract precise roof catchment polygons and identify cooling tower presence. Each detection outputs a composite Confidence Score built from model certainty, imagery quality, shadow/cloud obstruction, footprint alignment, and multi-pass agreement. Buildings with roof area exceeding 100,000 sq ft are automatically flagged and elevated in the prospect hierarchy.
+**Physical Intelligence (CV Engine) — Rooftop Capacity & Cooling Tower Analysis**
+Satellite and aerial imagery from NAIP (60cm resolution) and Sentinel-2 is processed using SAM 2 semantic segmentation and Grounding DINO zero-shot detection to extract precise roof catchment polygons, characterize usable rooftop capacity, and identify cooling tower presence and count. For every building, the platform computes three distinct rooftop metrics surfaced prominently in the UI: **Gross Roof Area** (total footprint in sqft), **Effective Catchment Area** (gross area minus obstructions — HVAC pads, skylights, mechanical yards — estimated via mask analysis and pitch multiplier applied per the secant of roof angle), and **Usable System Footprint** (the portion of roof physically available to install RainUSE Nexus hardware, accounting for setback requirements and structural access paths). These three numbers tell the Grundfos engineering team not just how much water a roof could theoretically catch, but how much of the roof they can actually work with. Cooling tower detection goes beyond a simple yes/no flag: the output includes tower count, estimated tower type (induced-draft rectangular, cross-flow, forced-draft), arrangement (clustered vs. distributed), and a visual evidence panel showing the detection bounding boxes on the satellite image. Buildings are classified into three cooling demand tiers — **High** (≥3 towers or industrial-scale single tower), **Medium** (1–2 towers, commercial scale), **None Detected** — which directly weights the Physical Fit sub-score and the Water Need pillar. Buildings with roof area exceeding 100,000 sq ft and High cooling demand receive an automatic **Priority Flag** and are elevated to the top of every ranked list.
 
 **Explainable Viability Score (0–100)**
 A six-pillar AHP-weighted composite score: Physical Fit (40%), Economic Viability (35%), Strategic/ESG Readiness (25%). Physical covers roof area, cooling tower probability, and CV confidence. Economic covers local water and sewer rates, stormwater fees (ERU-based), rebates, and tax exemptions. Strategic covers SEC ESG disclosure intensity, LEED signals, drought severity, and flood exposure. Every score decomposes fully in the UI so judges and users can audit every point. The final score is confidence-adjusted: `V_adj = V × (0.6 + 0.4 × confidence)`.
@@ -64,8 +64,23 @@ A six-pillar AHP-weighted composite score: Physical Fit (40%), Economic Viabilit
 **Rain-to-Resilience Water Twin Simulator**
 Per-building hydrological simulation using the formula: `Annual Gallons = Roof Area (sqft) × Annual Rain (in) × 0.623 × Runoff Coefficient × Pitch Multiplier`. Outputs annual harvestable gallons, IRR, payback period in years, stormwater fee avoidance, utility savings, and incentives captured. Scenario sliders let users stress-test D3 drought (−35% rainfall), rate shock (+50% utility rates), and high-reuse assumptions live in the browser with animated updates.
 
-**Municipal Incentive Adapter Engine**
-A modular, city-level rules engine pre-loaded with tier-1 adapters for Austin TX (GoPurple program, $5k rebate, reuse mandate for >100k sqft buildings), Dallas/Fort Worth TX (commercial rebate program, Texas sales tax exemption under §151.355, property tax exemption under §11.32), Philadelphia PA (up to $100k/acre green infrastructure grants, stormwater credits up to 45%), and Tucson AZ ($2,000 harvesting rebate). A generic adapter template allows any city to be added by filling a JSON schema.
+**Texas Tax & Incentive Intelligence Engine — Verified Numbers Built In**
+A modular, city-and-state-level rules engine pre-loaded with verified incentive data sourced from official Texas government materials, as suggested by Grundfos senior leadership. The Texas adapter is the most data-rich in the system, reflecting the real programs that Grundfos customers and Grundfos itself can access:
+
+*State-Level Texas Programs:*
+- **Texas Water-Efficient Products Sales Tax Exemption:** 6.25% state sales tax avoided on qualifying water-efficient equipment; combined state + local can reach 8.25%. Applied automatically to all RainUSE Nexus system CAPEX estimates in Texas ROI calculations.
+- **Texas Enterprise Zone Program:** State sales/use tax refund caps of $625,000 (Half Enterprise), $1,250,000 (Enterprise), $2,500,000 (Double Jumbo), and $3,750,000 (Triple Jumbo Project) — program tier surfaced based on building scale and estimated qualified jobs/spending.
+- **Texas Enterprise Fund:** $1,000–$10,000 per qualified job grant, surfaced as a supplemental incentive flag for manufacturing and industrial facilities.
+- **Water Conservation Initiatives Property Tax Exemption (Tax Code §11.32):** 0%–100% of approved assessed value, dependent on local taxing-unit adoption — shown as a case-by-case flag with a link to apply.
+- **Freeport Exemption:** Up to 100% property tax exemption on qualifying inventory shipped within 175 days — flagged for logistics and distribution buildings where inventory profile fits.
+- **Chapter 312 Tax Abatements:** Modeled directly on the verified Waller County / Grundfos CBS Brookshire precedent — a 60% abatement for 10 years at the 0.556187% Waller County 2025 tax rate, producing approximately $146,500/year in county-only savings on a $43.9M project, or ~$1.46M over the abatement term. This real-world Grundfos example is surfaced in the UI as a reference case when pitching Texas industrial customers.
+
+*City-Level Texas Programs:*
+- **Austin Water — Bucks for Business:** Up to $100,000 per project utility rebate; reuse mandate applies to buildings over 100,000 sq ft (GoPurple program).
+- **Dallas Water Utilities — ICI Rebate Program:** Up to $100,000 per project for commercial/industrial customers.
+- **San Antonio Water System (SAWS) — Commercial Custom Rebate:** No fixed public cap; calculated on water savings, equipment life, and ROI — surfaced as an open-ended incentive with a *"Request Quote"* link.
+
+Each building's detail page displays a **Texas Incentive Stack** card showing all applicable programs, their verified dollar values or percentage caps, the data source for each figure, and the combined estimated incentive value factored into the IRR and payback calculation. This directly addresses Ashley Dirou's mentor feedback and gives Grundfos sales reps a ready-made incentive conversation for every Texas prospect.
 
 **Corporate ESG Intelligence via SEC EDGAR**
 Automated scraping of 10-K annual reports using `sec-edgar-downloader` and `edgartools`. NLP keyword extraction from Item 1A (Risk Factors) and Item 7 (MD&A) targeting water scarcity, drought, flood business interruption, water quality, Legionella, net-zero water, LEED, and water stewardship language. Owner-to-company mapping via Regrid parcel API → SEC CIK mapper links a building address to its parent corporation's filing history. Companies with >5 water-risk mentions in recent filings are flagged as "Corporate ESG Accelerator" prospects.
@@ -279,13 +294,17 @@ Canvas element absolutely positioned over the map `<div>`, `pointer-events: none
 
 **Filter Sidebar:**
 - State selector (updates map)
-- Roof area slider (100k–500k+ sqft)
+- Gross Roof Area slider (100k–500k+ sqft)
+- Effective Catchment Area slider (80k–450k+ sqft)
+- Usable System Footprint slider (50k–400k+ sqft)
 - Viability Score threshold (0–100)
 - Sector filter (Data Center / Logistics / Manufacturing / Hospital / University / All)
-- Cooling Tower toggle (Detected / Not Required / All)
+- Cooling Tower Demand Tier (🔴 High / 🟡 Medium / None / All)
+- Cooling Tower Count (1 / 2 / 3+ / Any)
 - Drought severity filter (D1+ / D2+ / D3+ / Any)
 - WRAI threshold (Act Now / High / Any)
 - Incentive available toggle
+- Texas Incentive Stack filter (Dallas ICI Eligible / Chapter 312 Eligible / Enterprise Zone Eligible / Any)
 
 All filters are applied client-side against the loaded state dataset (pre-fetched on state selection). No additional API calls for filtering.
 
@@ -293,7 +312,7 @@ All filters are applied client-side against the loaded state dataset (pre-fetche
 Fixed 48px bar above the map. CSS `marquee`-style scroll using `animation: scroll-left 40s linear infinite`. Events are a JSON array of 12–20 hardcoded alerts for Texas (for demo), each with type (drought / ordinance / rate / sec), affected building IDs, score delta, and timestamp. Clicking an event: map `flyTo` the affected buildings, buildings pulse orange for 2 seconds, score panel shows delta annotation.
 
 **Building Ranked Table (right drawer):**
-Slide-in from right (Framer Motion `x: 400 → 0`, spring physics). `@tanstack/react-table` instance with columns: Rank, Building Name, City, Genome Badge, Score Ring, Roof (sqft), Gallons/yr, Payback, WRAI Badge, Actions. Sortable by any column. Virtual scrolling for large lists. Clicking a row selects the building and flies the map to it.
+Slide-in from right (Framer Motion `x: 400 → 0`, spring physics). `@tanstack/react-table` instance with columns: Rank, Building Name, City, Genome Badge, Score Ring, Gross Roof (sqft), Effective Catchment (sqft), Cooling Tier (badge), Gallons/yr, Payback, Top Incentive Value, WRAI Badge, Actions. Sortable by any column. Virtual scrolling for large lists. Clicking a row selects the building and flies the map to it. The cooling tower tier column renders as a colored badge — red for High, amber for Medium, gray for None — making it immediately scannable down the list without reading.
 
 ---
 
@@ -302,15 +321,35 @@ Slide-in from right (Framer Motion `x: 400 → 0`, spring physics). `@tanstack/r
 **Concept:** This is where the product shows its full depth. A split-layout: left panel is a stacked column of intelligence cards, right panel is the Satellite Viewer. On mobile, it's a vertical scroll. Every section is a distinct card with a clear visual hierarchy. The page feels like a classified intelligence dossier — not a property listing.
 
 **Section 1 — Hero Header:**
-Building name, address, Genome Archetype badge (large, colored pill), Viability Score as an animated ring (SVG circle, stroke-dashoffset animated from 0 to score value over 1.2s on mount), WRAI badge, and a row of three quick stats: Roof Area, Annual Gallons, Payback Years. Background: a subtle noise texture in deep navy.
+Building name, address, Genome Archetype badge (large, colored pill), Viability Score as an animated ring (SVG circle, stroke-dashoffset animated from 0 to score value over 1.2s on mount), WRAI badge, and a row of **five** quick stats displayed in Space Mono: Gross Roof Area (sqft), Effective Catchment Area (sqft), Usable System Footprint (sqft), Cooling Tower Status (badge: High / Medium / None), and Payback Years. The three roof metrics appear as a nested breakdown — the gross area is largest, with the effective and usable areas shown below it as progressively smaller bars, giving an immediate visual sense of how much of the roof is truly workable. This three-number rooftop breakdown was specifically requested by Grundfos senior leadership and gives the engineering team the data they need before a site visit.
 
-**Section 2 — Satellite Viewer:**
+**Section 2 — Satellite Viewer & Rooftop Evidence Panel:**
 The NAIP image chip displayed in a rounded card. On top of the image, rendered as SVG overlays:
-- Roof mask: `rgba(0, 229, 204, 0.25)` filled polygon with `rgba(0, 229, 204, 0.8)` stroke
-- Cooling tower detection boxes: amber `rgba(245, 166, 35, 0.9)` rectangles with confidence percentage labels (`84%`, `91%`)
-- A small legend: Roof Mask / Cooling Towers / Confidence
+- Gross roof mask: `rgba(0, 229, 204, 0.15)` light teal fill — the full footprint
+- Effective catchment area: `rgba(0, 229, 204, 0.35)` medium teal fill — excluding obstructions
+- Usable system footprint: `rgba(0, 229, 204, 0.70)` strong teal fill with `rgba(0, 229, 204, 0.9)` stroke — the actionable zone for hardware
+- Cooling tower detection boxes: amber `rgba(245, 166, 35, 0.9)` rectangles with confidence percentage labels (`84%`, `91%`) and a small type label below each box (e.g., *"Induced-draft · Est. 450 tons"*)
+- A legend card bottom-right: three teal swatches (Gross / Effective / Usable) + amber swatch (Cooling Tower)
 
-Below the image: three confidence bars with monospace numbers — Roof Confidence, Cooling Tower Confidence, Data Completeness Confidence.
+Below the image: a **Rooftop Capacity Breakdown** card with three rows:
+
+| Metric | Value | Notes |
+|---|---|---|
+| Gross Roof Area | 142,000 sqft | Full building footprint |
+| Effective Catchment | 128,000 sqft | Minus HVAC pads & skylights |
+| Usable System Footprint | 104,000 sqft | After setbacks & access paths |
+
+And below that, a **Cooling Tower Profile** card:
+| Detail | Value |
+|---|---|
+| Towers Detected | 2 |
+| Estimated Type | Induced-Draft Rectangular |
+| Arrangement | Clustered, NW corner |
+| Detection Confidence | 84% |
+| Cooling Demand Tier | 🔴 High |
+| Est. Annual Water Consumption | 8.2M gallons/yr |
+
+The cooling water consumption estimate is calculated from the tower type and building size — this is the number that makes the Grundfos pitch immediate: *"This building is already consuming 8.2 million gallons a year on cooling. We can reclaim a significant fraction of that."*
 
 Toggle button: *"View Evidence"* expands to show the raw chip, masked chip, and detection chip side by side in a three-panel view.
 
@@ -352,6 +391,28 @@ A vertical stack of event cards, each with:
 - Timestamp (relative: "3 weeks ago")
 
 Events are sourced from the alert store filtered to this building's jurisdiction and parent company. Maximum 5 events shown, ordered by score impact descending.
+
+**Section 5b — Texas Incentive Stack Card:**
+*Shown for all Texas buildings; hidden or replaced with state-equivalent for other states.*
+
+A dedicated card styled with a subtle Texas lone-star motif in the header. Titled **"Available Tax & Utility Incentives."** Contains a structured table of every applicable program for this building, populated from the verified municipal adapter and the state tax engine. Each row shows:
+- Program name (e.g., *"Dallas ICI Rebate Program"*)
+- Type badge: **Utility Rebate** / **Tax Exemption** / **Tax Abatement** / **State Grant**
+- Verified value (e.g., *"Up to $100,000"*)
+- Applicability status: ✅ Confirmed Eligible / ⚠️ Likely Eligible — Verify / ❓ Case-by-Case
+- Source link (icon button opening official program URL)
+
+At the bottom of the card: a **Combined Estimated Incentive Value** in large Space Mono type (e.g., *"$247,500 estimated total incentive value"*) and a note: *"Incentives applied in the ROI model above. Verify eligibility before customer commitment."*
+
+For DFW buildings, the default stack includes:
+- Dallas Water ICI Rebate: up to $100,000 ✅
+- Texas Water-Efficient Products Sales Tax Exemption: 6.25%–8.25% of system CAPEX ✅
+- Chapter 312 Abatement (if industrial, county-dependent): modeled at 60%/10yr precedent ⚠️
+- Texas Enterprise Zone Program: up to $625k–$3.75M depending on project scale ⚠️
+- Freeport Exemption: flagged for logistics buildings ⚠️
+- Water Conservation Property Tax Exemption (§11.32): case-by-case ❓
+
+A small callout box at the card bottom quotes the real-world Grundfos precedent: *"Grundfos CBS Brookshire expansion: ~$1.46M in county tax savings over 10 years via 60% Chapter 312 abatement on a $43.9M project. Use this as your reference case."* This gives the Grundfos rep an immediate, credible anchor number for customer conversations.
 
 **Section 6 — AI Deal Strategist:**
 Three mode tabs: **Sales** / **Engineering** / **Executive**
@@ -446,12 +507,14 @@ This route is protected. On access without authentication, Auth0 redirects to lo
 **Content:**
 The Dealroom is a long-scroll document-style page:
 1. Building summary (name, address, genome archetype, score)
-2. Satellite evidence panel (image + mask + detection, side by side)
-3. Water Twin output (frozen snapshot of the default scenario — not interactive here)
-4. ROI Summary (key numbers in a clean card grid)
-5. Why-Now events (full list)
-6. Generated Deal Memo (whichever mode was last generated)
-7. Boardroom Verdict (if run)
+2. Rooftop Capacity Breakdown (Gross / Effective / Usable sqft + Cooling Tower Profile)
+3. Satellite evidence panel (image + three-layer mask + detection boxes, side by side)
+4. Water Twin output (frozen snapshot of the default scenario — not interactive here)
+5. Texas Incentive Stack (full program list with verified values and combined estimate)
+6. ROI Summary (key numbers in a clean card grid, with incentives applied)
+7. Why-Now events (full list)
+8. Generated Deal Memo (whichever mode was last generated)
+9. Boardroom Verdict (if run)
 
 **Human-in-the-Loop Approval Gate (Auth0 AI Agents):**
 At the bottom of the page: *"Send This Dossier to Prospect."* Clicking triggers:
@@ -584,7 +647,10 @@ Each row has a colored confidence dot: 🟢 High (verified public record), 🟡 
 A contact card styled like a LinkedIn profile card: name, title, company, email (if found), LinkedIn URL (if found). Below: a *"Copy Contact"* button and a note on data source (*"Sourced from public business registry and LinkedIn public profile via Perplexity Sonar"*).
 
 **Section 3 — Building Intelligence Summary:**
-Key physical and financial stats (sourced from the platform's own scoring engine): roof area, cooling tower status, annual capture potential, payback estimate, active drought condition, applicable incentives.
+Key physical and financial stats (sourced from the platform's own scoring engine): gross roof area, effective catchment area, usable system footprint, cooling tower count and tier, estimated cooling water consumption, annual capture potential, payback estimate, active drought condition, applicable incentives.
+
+**Section 3b — Texas Incentive Stack (in Report):**
+The same verified incentive table from the building detail page, included in full in every automated report so the rep receives a complete, self-contained document. Each program row includes verified value, eligibility status, and source. The combined incentive estimate is shown prominently at the top of this section with a note: *"All incentive values reflected in the ROI model. Source data verified against official Texas government and municipal program pages as of [report date]."*
 
 **Section 4 — Outreach Pipeline:**
 Three tab panels for the three Claude-generated outreach scripts, each pre-personalized using the Perplexity-discovered ownership and the building's water profile:
@@ -664,61 +730,70 @@ If no reports have been generated yet (new user), a centered card with a rain an
 
 ---
 
-### Updated Data Architecture (additions)
+### Complete Data Architecture
 
 ```
-PostgreSQL + PostGIS (additions)
-  user_settings          → user_id, territory, cadence, threshold, onboarding_complete
-  automation_runs        → id, user_id, run_at, buildings_scanned, crossings_count, status
-  automation_reports     → id, run_id, building_id, score_at_trigger, sonar_raw_json,
-                           ownership_data, contact_data, outreach_scripts, routed_to_rep_id
-  rep_notifications      → id, report_id, rep_id, read_at, actioned_at, action_type
-  login_debriefs         → id, user_id, generated_at, script_text, elevenlabs_audio_url
+PostgreSQL + PostGIS
+  buildings            → id, polygon, centroid, state, city,
+                         gross_roof_sqft, effective_catchment_sqft, usable_footprint_sqft,
+                         area_confidence
+  cv_results           → building_id,
+                         ct_detected, ct_count, ct_type, ct_arrangement, ct_confidence,
+                         ct_demand_tier (high/medium/none),
+                         est_cooling_consumption_gal_yr,
+                         roof_mask_url, roof_confidence, effective_mask_url, usable_mask_url
+  climate_data         → building_id, annual_rain_in, drought_score, flood_zone, fema_class
+  financial_data       → building_id, water_rate, sewer_rate, stormwater_fee_annual
+  incentive_adapters   → city_id, program_name, program_type, verified_value_usd,
+                         verified_pct, eligibility_rule, source_url, last_verified_date
+  incentive_stacks     → building_id, applicable_program_ids[], combined_estimate_usd,
+                         stack_generated_at
+  texas_reference_case → id, project_name ("Grundfos CBS Brookshire"),
+                         project_value_usd (43900000),
+                         abatement_pct (60), abatement_years (10),
+                         county_tax_rate (0.00556187),
+                         annual_savings_usd (146500),
+                         total_savings_usd (1460000)
+  corporate_data       → building_id, owner_name, sec_cik, esg_score, water_mentions, filing_year
+  viability_scores     → building_id, final_score, physical, economic, strategic, wrai, genome
+  alert_events         → id, type, building_ids[], score_delta, description, timestamp
+  user_settings        → user_id, territory, cadence, threshold, onboarding_complete
+  automation_runs      → id, user_id, run_at, buildings_scanned, crossings_count, status
+  automation_reports   → id, run_id, building_id, score_at_trigger, sonar_raw_json,
+                         ownership_data, contact_data, outreach_scripts, routed_to_rep_id
+  rep_notifications    → id, report_id, rep_id, read_at, actioned_at, action_type
+  login_debriefs       → id, user_id, generated_at, script_text, elevenlabs_audio_url
 
-FastAPI Routes (additions)
-  GET  /api/settings/{user_id}                 → User automation settings
-  POST /api/settings/{user_id}                 → Save onboarding config, init cron
-  GET  /api/automation/runs?user={}            → Run history for Automation Center
-  POST /api/automation/run-now                 → Manual trigger (demo mode)
-  GET  /api/reports?user={}&filters={}         → All reports feed
-  GET  /api/report/{id}                        → Full intelligence report
-  POST /api/report/{id}/route                  → Route to rep (Auth0 gated)
-  GET  /api/inbox?rep_id={}                    → Rep notification inbox
-  POST /api/inbox/{id}/read                    → Mark notification read
-  GET  /api/debrief/{user_id}                  → Latest login debrief script + audio URL
-  POST /api/debrief/generate                   → Trigger fresh ElevenLabs debrief
+FastAPI Routes
+  GET  /api/buildings?state={}&filters={}           → Ranked building list for map
+  GET  /api/building/{id}                           → Full building intelligence record
+  GET  /api/building/{id}/harvest                   → Water Twin computation
+  GET  /api/building/{id}/incentives                → Incentive Stack for building
+  POST /api/building/{id}/memo                      → Claude deal memo generation
+  POST /api/building/{id}/boardroom                 → Boardroom clash simulation
+  POST /api/building/{id}/voice-script              → Gemini voice pitch script
+  GET  /api/states/{a}/vs/{b}                       → State battle comparison data
+  GET  /api/portfolio/{owner}                       → Portfolio domino data
+  GET  /api/alerts?state={}                         → Alert feed events
+  GET  /api/incentives/texas/reference-case         → Grundfos CBS Brookshire benchmark
+  GET  /api/settings/{user_id}                      → User automation settings
+  POST /api/settings/{user_id}                      → Save onboarding config, init cron
+  GET  /api/automation/runs?user={}                 → Run history for Automation Center
+  POST /api/automation/run-now                      → Manual trigger (demo mode)
+  GET  /api/reports?user={}&filters={}              → All reports feed
+  GET  /api/report/{id}                             → Full intelligence report
+  POST /api/report/{id}/route                       → Route to rep (Auth0 gated)
+  GET  /api/inbox?rep_id={}                         → Rep notification inbox
+  POST /api/inbox/{id}/read                         → Mark notification read
+  GET  /api/debrief/{user_id}                       → Latest login debrief + audio URL
+  POST /api/debrief/generate                        → Trigger fresh ElevenLabs debrief
 
 Automation Engine (Celery + Redis)
   tasks/scan_territory.py        → Cron task: rescore buildings, detect crossings
   tasks/run_sonar.py             → Perplexity Sonar API call per flagged building
-  tasks/generate_report.py       → Assemble report from Sonar + score data
+  tasks/generate_report.py       → Assemble report from Sonar + score data + incentive stack
   tasks/route_to_rep.py          → Assign report to nearest rep, create notification
   tasks/generate_debrief.py      → Claude script generation + ElevenLabs TTS on login
-```
-
----
-
-```
-PostgreSQL + PostGIS
-  buildings            → id, polygon, centroid, state, city, roof_sqft, area_confidence
-  cv_results           → building_id, ct_detected, ct_confidence, roof_mask_url, roof_confidence
-  climate_data         → building_id, annual_rain_in, drought_score, flood_zone, fema_class
-  financial_data       → building_id, water_rate, sewer_rate, stormwater_fee_annual
-  incentive_adapters   → city_id, rebate_usd, mandate_threshold_sqft, tax_exempt, credit_pct
-  corporate_data       → building_id, owner_name, sec_cik, esg_score, water_mentions, filing_year
-  viability_scores     → building_id, final_score, physical, economic, strategic, wrai, genome
-  alert_events         → id, type, building_ids[], score_delta, description, timestamp
-
-FastAPI Routes
-  GET  /api/buildings?state={}&filters={}    → Ranked building list for map
-  GET  /api/building/{id}                    → Full building intelligence record
-  GET  /api/building/{id}/harvest            → Water Twin computation
-  POST /api/building/{id}/memo               → Claude deal memo generation
-  POST /api/building/{id}/boardroom          → Boardroom clash simulation
-  POST /api/building/{id}/voice-script       → Gemini voice pitch script
-  GET  /api/states/{a}/vs/{b}               → State battle comparison data
-  GET  /api/portfolio/{owner}               → Portfolio domino data
-  GET  /api/alerts?state={}                 → Alert feed events
 ```
 
 ---
@@ -769,27 +844,29 @@ FastAPI Routes
 
 4. **(2:00)** Apply filters: roofs >150k sqft, cooling towers detected, WRAI *"Act Now."* Down to 38. *"These 38 buildings need a Grundfos conversation right now."*
 
-5. **(2:30)** Click the top-ranked building. Genome Fingerprint animates in. Show satellite viewer with roof mask and cooling tower boxes. *"AI-confirmed. 142,000 square feet of catchment area. Two cooling towers at 84% confidence."*
+5. **(2:30)** Click the top-ranked building. Genome Fingerprint animates in. Show satellite viewer — point to the three-layer roof overlay. *"Three roof numbers: 142,000 gross, 128,000 effective, 104,000 usable. That's what Grundfos engineering actually needs before a site visit."* Point to the amber boxes. *"Two induced-draft cooling towers, 84% confidence. High demand tier. This building is consuming an estimated 8.2 million gallons a year on cooling alone."*
 
 6. **(3:15)** Open Water Twin. Drag drought slider to D3. Watch payback shrink. *"Drought makes this more attractive. The worse the water gets, the better the ROI."*
 
-7. **(3:50)** Hit **"Generate Voice Pitch."** Let it speak. Watch the room.
+7. **(3:45)** Scroll to the Texas Incentive Stack card. *"Ashley from Grundfos asked specifically for this. Every verified incentive for this building — Dallas ICI rebate up to $100,000, Texas sales tax exemption up to 8.25%, Chapter 312 abatement modeled on Grundfos's own Brookshire project — $1.46 million saved over 10 years. Combined estimated incentive value: $247,500. Already baked into the payback number."*
 
-8. **(4:30)** Hit **"Start Boardroom."** CFO vs ESG Officer debate plays out. Point at verdict: *"The AI just closed itself."*
+8. **(4:20)** Hit **"Generate Voice Pitch."** Let it speak. Watch the room.
 
-9. **(5:15)** Navigate to `/automation`. Show the Engine Status Panel — countdown to next scan, last run timestamp. *"This ran this morning at 6 AM. Nobody told it to."* Expand the last run entry: 3 buildings crossed threshold 80. *"Three new prospects. Zero manual work."*
+9. **(5:00)** Hit **"Start Boardroom."** CFO vs ESG Officer debate plays out. Point at verdict: *"The AI just closed itself."*
 
-10. **(5:50)** Hit **"Run Now"** button. Show the live pipeline progress: `Scanning → Scoring → Flagging → Running Sonar Research → Dispatching`. All four stages check off in 30 seconds. *"That's the entire prospecting workflow. 30 seconds. Automated."*
+10. **(5:45)** Navigate to `/automation`. Show the Engine Status Panel — countdown to next scan, last run timestamp. *"This ran this morning at 6 AM. Nobody told it to."* Expand the last run entry: 3 buildings crossed threshold 80. *"Three new prospects. Zero manual work."*
 
-11. **(6:30)** Navigate to `/inbox`. Show three notification cards with teal unread borders. Open the top report. Show the ownership table with confidence badges, decision-maker contact card, and three outreach scripts. *"Perplexity Sonar found who owns it, who runs it, and how to reach them. Claude wrote the email."*
+11. **(6:20)** Hit **"Run Now"** button. Show the live pipeline progress: `Scanning → Scoring → Flagging → Running Sonar Research → Dispatching`. All four stages check off in 30 seconds. *"That's the entire prospecting workflow. 30 seconds. Automated."*
 
-12. **(7:00)** Hit *"Send Outreach."* Auth0 approval gate appears. *"The AI assembled the action. It's waiting for a human to say yes. That's the right way to deploy AI in an enterprise."* Hit Approve. Toast confirmation. *"Done."*
+12. **(7:00)** Navigate to `/inbox`. Show three notification cards with teal unread borders. Open the top report. Show the ownership table with confidence badges, decision-maker contact card, incentive stack section, and three outreach scripts. *"Perplexity Sonar found who owns it, who runs it, and how to reach them. Claude wrote the email. The incentive stack is right there so the rep walks in knowing about the $100,000 rebate before the prospect does."*
 
-13. **(7:30)** Switch to State Battle Arena. Texas vs Philadelphia. Cards fly in, radar charts overlay. AI verdict drops. *"Same engine. Different market logic. The platform adapts."*
+13. **(7:30)** Hit *"Send Outreach."* Auth0 approval gate appears. *"The AI assembled the action. It's waiting for a human to say yes. That's the right way to deploy AI in an enterprise."* Hit Approve. Toast confirmation. *"Done."*
 
-14. **(8:00)** Open Portfolio Domino view. Arc constellation on the map. *"One building. Eight more like it. That's what one deal really means for Grundfos."*
+14. **(8:00)** Switch to State Battle Arena. Texas vs Philadelphia. Cards fly in, radar charts overlay. AI verdict drops. *"Same engine. Different market logic. The platform adapts."*
 
-15. **(8:40)** Back to landing page. Counter still ticking up. ElevenLabs debrief still in the widget. *"RainUSE Nexus doesn't just find where water reuse is possible — it finds where it's becoming inevitable, researches the building overnight, writes the email, and briefs you when you wake up. Possibility in every drop."*
+15. **(8:30)** Open Portfolio Domino view. Arc constellation on the map. *"One building. Eight more like it. That's what one deal really means for Grundfos."*
+
+16. **(9:00)** Back to landing page. Counter still ticking up. ElevenLabs debrief still in the widget. *"RainUSE Nexus doesn't just find where water reuse is possible — it finds where it's becoming inevitable, researches the building overnight, writes the email, and briefs you when you wake up. Possibility in every drop."*
 
 ---
 

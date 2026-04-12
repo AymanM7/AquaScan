@@ -9,11 +9,10 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/map", label: "Map" },
   { href: "/feed", label: "Feed" },
-  { href: "/compare", label: "Compare" },
-  { href: "/portfolio/prologis", label: "Portfolio" },
+  { href: "/compare", label: "Battle" },
+  { href: "/portfolio/Prologis Inc.", label: "Portfolio" },
   { href: "/automation", label: "Automation" },
   { href: "/inbox", label: "Inbox" },
-  { href: "/onboarding", label: "Onboarding" },
 ];
 
 export function AppNav() {

@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from database import Base
@@ -13,9 +13,16 @@ class CVResult(Base):
     building_id = Column(UUID(as_uuid=True), ForeignKey("buildings.id"))
     ct_detected = Column(Boolean, default=False)
     ct_confidence = Column(Float)
+    ct_count = Column(Integer, default=0)
+    ct_type = Column(String(100))          # Induced-Draft Rectangular, Cross-Flow, etc.
+    ct_arrangement = Column(String(100))   # Clustered NW corner, Distributed, etc.
+    ct_demand_tier = Column(String(20))    # High, Medium, None
+    est_cooling_consumption_gal_yr = Column(Float)
     ct_boxes = Column(JSONB)
     roof_mask_url = Column(Text)
     roof_confidence = Column(Float)
+    effective_mask_url = Column(Text)
+    usable_mask_url = Column(Text)
     imagery_source = Column(String(50))
     analysis_date = Column(Date)
     raw_chip_url = Column(Text)

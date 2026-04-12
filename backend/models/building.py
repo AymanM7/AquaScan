@@ -19,6 +19,8 @@ class Building(Base):
     zip = Column("zip", String(10))
     sector = Column(String(50))
     roof_sqft = Column(Integer, nullable=False)
+    effective_catchment_sqft = Column(Integer)
+    usable_footprint_sqft = Column(Integer)
     area_confidence = Column(Float)
     name = Column(String(200))
     created_at = Column(DateTime(timezone=True), server_default=func.now())

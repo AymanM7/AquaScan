@@ -1,0 +1,52 @@
+{
+  "city_id": "austin_tx",
+  "city_name": "Austin",
+  "state": "TX",
+  "programs": [
+    {
+      "name": "Austin Water — Bucks for Business",
+      "type": "Utility Rebate",
+      "rebate_usd": 100000,
+      "description": "Up to $100,000 per project utility rebate for commercial water conservation",
+      "eligibility": "Austin Water commercial customers",
+      "source_url": "https://www.austintexas.gov/department/bucks-business"
+    },
+    {
+      "name": "GoPurple Reuse Mandate",
+      "type": "Mandate",
+      "mandate_threshold_sqft": 100000,
+      "description": "Reuse mandate applies to buildings over 100,000 sq ft",
+      "eligibility": "Buildings >100,000 sqft in Austin Water service area",
+      "source_url": "https://www.austintexas.gov/department/reclaimed-water"
+    },
+    {
+      "name": "Texas Water-Efficient Products Sales Tax Exemption",
+      "type": "Tax Exemption",
+      "pct": 8.25,
+      "description": "6.25% state + up to 2% local sales tax avoided on qualifying water-efficient equipment",
+      "statute": "Texas Tax Code §151.355",
+      "source_url": "https://comptroller.texas.gov/taxes/publications/96-1045.php"
+    },
+    {
+      "name": "Water Conservation Property Tax Exemption (§11.32)",
+      "type": "Tax Exemption",
+      "description": "0%–100% of approved assessed value, dependent on local taxing-unit adoption",
+      "statute": "Texas Tax Code §11.32",
+      "source_url": "https://statutes.capitol.texas.gov/Docs/TX/htm/TX.11.htm"
+    },
+    {
+      "name": "Chapter 312 Tax Abatement",
+      "type": "Tax Abatement",
+      "description": "County-dependent property tax abatement for qualifying projects",
+      "statute": "Texas Tax Code Chapter 312",
+      "source_url": "https://comptroller.texas.gov/economy/local/ch312/"
+    }
+  ],
+  "sales_tax_exempt": true,
+  "sales_tax_pct": 8.25,
+  "property_tax_exempt": false,
+  "stormwater_credit_pct": 0.0,
+  "green_infra_grant_max": 0,
+  "mandate_threshold_sqft": 100000,
+  "notes": "Austin Water Bucks for Business + GoPurple mandate + state-level Texas programs"
+}

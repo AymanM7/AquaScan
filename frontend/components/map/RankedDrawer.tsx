@@ -33,20 +33,68 @@ export function RankedDrawer() {
         id: "rank",
         header: "#",
         cell: (ctx) => ctx.row.index + 1,
-        size: 36,
+        size: 32,
       }),
-      col.accessor("name", { header: "Building" }),
+      col.accessor("name", {
+        header: "Building",
+        cell: (c) => (
+          <span className="max-w-[120px] truncate block" title={c.getValue()}>
+            {c.getValue()}
+          </span>
+        ),
+      }),
       col.accessor("final_score", {
         header: "Score",
-        cell: (c) => c.getValue().toFixed(1),
-        size: 72,
+        cell: (c) => {
+          const s = c.getValue();
+          const color = s >= 80 ? "text-accent-teal" : s >= 60 ? "text-accent-blue" : "text-content-secondary";
+          return <span className={`font-mono font-semibold ${color}`}>{s.toFixed(0)}</span>;
+        },
+        size: 56,
+      }),
+      col.accessor("genome_archetype", {
+        header: "Genome",
+        cell: (c) => (
+          <span className="rounded-full bg-bg-surface-2 px-1.5 py-0.5 text-[9px]">
+            {c.getValue()?.split(" ").map(w => w[0]).join("") || "—"}
+          </span>
+        ),
+        size: 56,
+      }),
+      col.accessor("roof_sqft", {
+        header: "Roof",
+        cell: (c) => `${(c.getValue() / 1000).toFixed(0)}k`,
+        size: 52,
+      }),
+      col.accessor("ct_demand_tier", {
+        header: "CT",
+        cell: (c) => {
+          const t = c.getValue();
+          if (t === "High") return <span className="text-red-400">🔴</span>;
+          if (t === "Medium") return <span className="text-amber-400">🟡</span>;
+          return <span className="text-content-secondary/40">—</span>;
+        },
+        size: 32,
+      }),
+      col.accessor("annual_gallons", {
+        header: "Gal/yr",
+        cell: (c) => `${(c.getValue() / 1_000_000).toFixed(1)}M`,
+        size: 56,
+      }),
+      col.accessor("payback_years", {
+        header: "PB",
+        cell: (c) => `${c.getValue().toFixed(1)}`,
+        size: 40,
       }),
       col.accessor("wrai", {
         header: "WRAI",
-        cell: (c) => c.getValue().toFixed(0),
-        size: 64,
+        cell: (c) => {
+          const w = c.getValue();
+          const color = w >= 80 ? "text-red-400" : w >= 60 ? "text-amber-400" : "text-blue-400";
+          return <span className={`font-mono ${color}`}>{w.toFixed(0)}</span>;
+        },
+        size: 48,
       }),
-      col.accessor("genome_archetype", { header: "Genome" }),
     ],
     getCoreRowModel: getCoreRowModel(),
   });
@@ -65,7 +113,7 @@ export function RankedDrawer() {
   }
 
   return (
-    <div className="absolute right-4 top-20 z-20 flex h-[min(70vh,640px)] w-[min(520px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-edge bg-bg-surface/95 shadow-teal-glow backdrop-blur">
+    <div className="absolute right-4 top-20 z-20 flex h-[min(70vh,640px)] w-[min(680px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-edge bg-bg-surface/95 shadow-teal-glow backdrop-blur">
       <div className="flex items-center justify-between border-b border-edge px-3 py-2">
         <div className="font-display text-sm font-semibold">Ranked targets</div>
         <button

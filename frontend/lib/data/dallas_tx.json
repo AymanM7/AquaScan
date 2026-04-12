@@ -4,17 +4,23 @@
   "state": "TX",
   "programs": [
     {
-      "name": "Texas Commercial Rainwater Rebate",
-      "rebate_usd": 5000,
-      "mandate_threshold_sqft": null,
-      "eligibility": "commercial buildings with roof >10,000 sqft"
+      "name": "Dallas Water Utilities ICI Rebate Program",
+      "rebate_usd": 100000,
+      "eligibility": "Commercial and industrial water customers in Dallas"
+    },
+    {
+      "name": "Texas Water-Efficient Products Sales Tax Exemption",
+      "rebate_usd": 0,
+      "pct": 8.25,
+      "eligibility": "All qualifying rainwater harvesting equipment in Texas"
     }
   ],
   "sales_tax_exempt": true,
+  "sales_tax_pct": 8.25,
   "sales_tax_statute": "Texas Tax Code §151.355",
   "property_tax_exempt": true,
   "property_tax_statute": "Texas Tax Code §11.32",
   "stormwater_credit_pct": 0.0,
   "green_infra_grant_max": 0,
-  "notes": "Sales and property tax exemptions apply to rainwater harvesting systems"
+  "notes": "Dallas ICI rebate up to $100K + Texas state tax exemptions + Chapter 312 abatement eligibility"
 }

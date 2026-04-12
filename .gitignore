@@ -18,6 +18,7 @@ frontend/out/
 next-env.d.ts
 
 # IDE / OS
+.claude/
 .idea/
 .vscode/
 .DS_Store

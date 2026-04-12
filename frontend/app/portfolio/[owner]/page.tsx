@@ -73,11 +73,26 @@ export default function PortfolioPage() {
               <h2 className="font-mono text-[11px] uppercase tracking-widest text-content-secondary">
                 Constellation map
               </h2>
-              <div className="relative mt-6 flex h-48 items-center justify-center rounded-xl border border-edge bg-bg-surface">
-                <div className="absolute inset-x-8 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-accent-teal/40 to-transparent" />
+              <div className="relative mt-6 flex h-64 items-center justify-center rounded-xl border border-edge bg-bg-surface overflow-hidden">
+                {/* Arc lines connecting buildings to anchor */}
+                <svg className="absolute inset-0 h-full w-full pointer-events-none">
+                  {data.buildings.slice(0, 12).map((b, i, arr) => {
+                    const angle = (i / Math.max(arr.length, 1)) * Math.PI * 2 - Math.PI / 2;
+                    const r = 90;
+                    const x = 50 + Math.cos(angle) * (r / 2.8);
+                    const y = 50 + Math.sin(angle) * (r / 2.8);
+                    return (
+                      <line key={b.id} x1="50%" y1="50%" x2={`${x}%`} y2={`${y}%`}
+                        stroke={b.id === data.first_domino_building_id ? "#F5A623" : "rgba(0,229,204,0.15)"}
+                        strokeWidth={b.id === data.first_domino_building_id ? 2 : 1}
+                        strokeDasharray={b.id === data.first_domino_building_id ? "" : "4 4"}
+                      />
+                    );
+                  })}
+                </svg>
                 {data.buildings.slice(0, 12).map((b, i, arr) => {
-                  const angle = (i / Math.max(arr.length, 1)) * Math.PI - Math.PI / 2;
-                  const r = 72;
+                  const angle = (i / Math.max(arr.length, 1)) * Math.PI * 2 - Math.PI / 2;
+                  const r = 90;
                   const x = Math.cos(angle) * r;
                   const y = Math.sin(angle) * r;
                   return (

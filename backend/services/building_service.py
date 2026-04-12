@@ -7,6 +7,12 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from adapters.incentive import (
+    build_incentive_stack,
+    compute_combined_incentive_estimate,
+    get_texas_reference_case,
+    load_adapter,
+)
 from models.alert import AlertEvent
 from models.building import Building
 from models.climate import ClimateData
@@ -73,6 +79,11 @@ def _summary_from_row(
         sales_tax_exempt=bool(incentive.get("sales_tax_exempt")),
         property_tax_exempt=bool(incentive.get("property_tax_exempt")),
     )
+    eff = getattr(row, "effective_catchment_sqft", None)
+    usb = getattr(row, "usable_footprint_sqft", None)
+    ct_count = getattr(row, "ct_count", None)
+    ct_demand = getattr(row, "ct_demand_tier", None)
+
     return BuildingSummary(
         id=str(row.id),
         name=row.name or "",
@@ -81,6 +92,8 @@ def _summary_from_row(
         state=row.state,
         sector=row.sector or "",
         roof_sqft=row.roof_sqft,
+        effective_catchment_sqft=int(eff) if eff else int(row.roof_sqft * 0.90),
+        usable_footprint_sqft=int(usb) if usb else int(row.roof_sqft * 0.73),
         centroid_lat=float(row.lat or 0),
         centroid_lng=float(row.lon or 0),
         polygon_geojson=_polygon_geometry(row.poly_gj) or {"type": "Polygon", "coordinates": []},
@@ -89,6 +102,8 @@ def _summary_from_row(
         genome_archetype=row.genome_archetype or "",
         ct_detected=bool(row.ct_detected) if row.ct_detected is not None else False,
         ct_confidence=float(row.ct_confidence or 0),
+        ct_count=int(ct_count or 0),
+        ct_demand_tier=str(ct_demand or "None"),
         annual_gallons=h.annual_gallons,
         payback_years=h.payback_years,
         drought_label=row.drought_label or "None",
@@ -128,6 +143,8 @@ async def list_buildings(
             Building.state,
             Building.sector,
             Building.roof_sqft,
+            Building.effective_catchment_sqft,
+            Building.usable_footprint_sqft,
             func.ST_AsGeoJSON(Building.polygon).label("poly_gj"),
             func.ST_X(Building.centroid).label("lon"),
             func.ST_Y(Building.centroid).label("lat"),
@@ -136,6 +153,8 @@ async def list_buildings(
             ViabilityScore.genome_archetype,
             CVResult.ct_detected,
             CVResult.ct_confidence,
+            CVResult.ct_count,
+            CVResult.ct_demand_tier,
             ClimateData.annual_rain_inches,
             ClimateData.drought_label,
             ClimateData.drought_score,
@@ -213,6 +232,8 @@ async def get_building_detail(
             Building.state,
             Building.sector,
             Building.roof_sqft,
+            Building.effective_catchment_sqft,
+            Building.usable_footprint_sqft,
             Building.area_confidence,
             func.ST_AsGeoJSON(Building.polygon).label("poly_gj"),
             func.ST_X(Building.centroid).label("lon"),
@@ -226,8 +247,15 @@ async def get_building_detail(
             ViabilityScore.confidence_composite,
             CVResult.ct_detected,
             CVResult.ct_confidence,
+            CVResult.ct_count,
+            CVResult.ct_type,
+            CVResult.ct_arrangement,
+            CVResult.ct_demand_tier,
+            CVResult.est_cooling_consumption_gal_yr,
             CVResult.ct_boxes,
             CVResult.roof_mask_url,
+            CVResult.effective_mask_url,
+            CVResult.usable_mask_url,
             CVResult.raw_chip_url,
             CVResult.masked_chip_url,
             CVResult.roof_confidence,
@@ -239,6 +267,7 @@ async def get_building_detail(
             FinancialData.water_rate_per_kgal,
             FinancialData.sewer_rate_per_kgal,
             FinancialData.stormwater_fee_annual,
+            FinancialData.city_id,
             CorporateData.owner_name,
             CorporateData.sec_cik,
             CorporateData.esg_score,
@@ -306,6 +335,20 @@ async def get_building_detail(
 
     from services.scoring import hydro_deliberation_class, wrai_badge_label
 
+    # Build incentive stack from adapter
+    city_id = getattr(row, "city_id", None) or "dallas_tx"
+    adapter_data = load_adapter(city_id)
+    capex = float(row.roof_sqft) * 0.018
+    i_stack = build_incentive_stack(
+        adapter_data,
+        int(row.roof_sqft),
+        capex,
+        sector=row.sector or "",
+        state=row.state,
+    )
+    combined_est = compute_combined_incentive_estimate(adapter_data, int(row.roof_sqft), capex)
+    tx_ref = get_texas_reference_case() if row.state == "TX" else None
+
     detail = BuildingDetail(
         **base.model_dump(),
         area_confidence=float(row.area_confidence or 0),
@@ -314,7 +357,12 @@ async def get_building_detail(
         roof_mask_url=row.roof_mask_url,
         raw_chip_url=row.raw_chip_url,
         masked_chip_url=row.masked_chip_url,
+        effective_mask_url=getattr(row, "effective_mask_url", None),
+        usable_mask_url=getattr(row, "usable_mask_url", None),
         ct_boxes=boxes,
+        ct_type=getattr(row, "ct_type", "") or "",
+        ct_arrangement=getattr(row, "ct_arrangement", "") or "",
+        est_cooling_consumption_gal_yr=float(getattr(row, "est_cooling_consumption_gal_yr", 0) or 0),
         water_rate_per_kgal=float(row.water_rate_per_kgal or 0),
         sewer_rate_per_kgal=float(row.sewer_rate_per_kgal or 0),
         stormwater_fee_annual=float(row.stormwater_fee_annual or 0),
@@ -347,6 +395,9 @@ async def get_building_detail(
         stormwater_fee_avoidance=float(h2.stormwater_fee_avoidance),
         savings_curve=list(h2.savings_curve),
         hydro_thesis="rain_roi",
+        incentive_stack=i_stack,
+        combined_incentive_estimate=combined_est,
+        texas_reference_case=tx_ref,
     )
     return detail.model_copy(update={"hydro_thesis": hydro_deliberation_class(detail)})
 

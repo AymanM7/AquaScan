@@ -9,6 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from adapters.incentive import (
+    build_incentive_stack,
+    compute_combined_incentive_estimate,
+    get_texas_reference_case,
+    load_adapter,
+)
 from database import get_db
 from schemas.ai import MemoRequest
 from schemas.building import (
@@ -227,3 +233,38 @@ async def api_voice_script(
     except RuntimeError as e:
         logger.warning("Voice script unavailable: %s", e)
         raise HTTPException(status_code=503, detail="AI service unavailable") from e
+
+
+@router.get("/building/{building_id}/incentives")
+async def api_building_incentives(
+    building_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Return full incentive stack for a building."""
+    building = await get_building_detail(session, building_id)
+    if not building:
+        raise HTTPException(status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"})
+    city_id = "dallas_tx"  # Default DFW; extensible per city_id lookup
+    adapter_data = load_adapter(city_id)
+    capex = float(building.roof_sqft) * 0.018
+    stack = build_incentive_stack(
+        adapter_data,
+        int(building.roof_sqft),
+        capex,
+        sector=building.sector,
+        state=building.state,
+    )
+    combined = compute_combined_incentive_estimate(adapter_data, int(building.roof_sqft), capex)
+    tx_ref = get_texas_reference_case() if building.state == "TX" else None
+    return {
+        "building_id": str(building_id),
+        "incentive_stack": stack,
+        "combined_estimate_usd": combined,
+        "texas_reference_case": tx_ref,
+    }
+
+
+@router.get("/incentives/texas/reference-case")
+async def api_texas_reference_case():
+    """Return the Grundfos CBS Brookshire reference case."""
+    return get_texas_reference_case()
