@@ -1,6 +1,6 @@
 # RainUSE Nexus (AquaScan monorepo)
 
-RainUSE Nexus is an **autonomous water-opportunity intelligence system** for Grundfos: it discovers, evaluates, and acts on commercial building prospects (scheduled rescoring, threshold crossings, deep research, and rep routing) with **explainable** viability scores and a **map-first** command center. This is not a generic CRUD dashboard; the product centers on an automation engine, auditable scores, and modular city adapters.
+RainUSE Nexus is an **autonomous water-opportunity intelligence system** for Grundfos: it discovers, evaluates, and acts on commercial building prospects (scheduled rescoring, threshold crossings, deep research, and rep routing) with **explainable** viability scores and a **map-first** command center. This is not a generic CRUD dashboard; the product centers on an automation engine, auditable scores, and modular city adapters. 
 
 **Authoritative specs**
 
