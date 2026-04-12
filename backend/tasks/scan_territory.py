@@ -16,10 +16,10 @@ from services.user_service import get_user_settings
 
 @celery_app.task(bind=True, name="tasks.scan_territory.run_territory_scan")
 def run_territory_scan(self, user_id: str, demo_mode: bool = False):
-    return asyncio.run(_run_territory_scan_async(user_id, self.request.id, demo_mode))
+    return asyncio.run(_run_territory_scan_async(self, user_id, self.request.id, demo_mode))
 
 
-async def _run_territory_scan_async(user_id: str, task_id: str, demo_mode: bool):
+async def _run_territory_scan_async(task_self, user_id: str, task_id: str, demo_mode: bool):
     async with AsyncSessionLocal() as db:
         settings = await get_user_settings(db, user_id)
         threshold = int(settings.score_threshold or 75) if settings else 75
@@ -38,6 +38,10 @@ async def _run_territory_scan_async(user_id: str, task_id: str, demo_mode: bool)
         await db.refresh(run)
 
         try:
+            task_self.update_state(
+                state="PROGRESS",
+                meta={"stage": "init", "current": 0, "total": 0, "message": "Starting territory scan"},
+            )
             if demo_mode:
                 run.buildings_scanned = 55
                 run.crossings_count = 3
@@ -58,6 +62,15 @@ async def _run_territory_scan_async(user_id: str, task_id: str, demo_mode: bool)
 
             buildings = await get_buildings_for_territory_scan(db, state)
             crossings: list[dict] = []
+            task_self.update_state(
+                state="PROGRESS",
+                meta={
+                    "stage": "scoring",
+                    "current": 0,
+                    "total": len(buildings),
+                    "message": f"Scoring {len(buildings)} buildings in {state}",
+                },
+            )
 
             for i, (b, vs) in enumerate(buildings):
                 prev = float(vs.final_score or 0.0)
@@ -76,6 +89,15 @@ async def _run_territory_scan_async(user_id: str, task_id: str, demo_mode: bool)
                     )
                 if i % 10 == 0:
                     await db.commit()
+                    task_self.update_state(
+                        state="PROGRESS",
+                        meta={
+                            "stage": "scoring",
+                            "current": i + 1,
+                            "total": len(buildings),
+                            "message": "Recomputing viability scores",
+                        },
+                    )
 
             run.buildings_scanned = len(buildings)
             run.crossings_count = len(crossings)
@@ -83,6 +105,15 @@ async def _run_territory_scan_async(user_id: str, task_id: str, demo_mode: bool)
 
             from tasks.run_sonar import run_sonar_research
 
+            task_self.update_state(
+                state="PROGRESS",
+                meta={
+                    "stage": "sonar",
+                    "current": 0,
+                    "total": len(crossings),
+                    "message": "Dispatching Sonar research for threshold crossings",
+                },
+            )
             for c in crossings:
                 run_sonar_research.delay(
                     str(run.id), user_id, c, threshold

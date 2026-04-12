@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { AppNav } from "@/components/shared/AppNav";
 import { useAutomationRun } from "@/hooks/useAutomationRun";
 import { apiJson } from "@/lib/api";
+import { DEMO_REP_ID } from "@/lib/demoMode";
 
 type RunRow = {
   id: string;
@@ -30,7 +31,7 @@ const fetchReports = (userId: string) =>
 
 export default function AutomationPage() {
   const { user, isAuthenticated, loginWithRedirect } = useAuth0();
-  const userId = user?.sub ?? "demo-local-user";
+  const userId = user?.sub ?? DEMO_REP_ID;
   const { data: runs, mutate: mutateRuns } = useSWR(["automation-runs", userId], () => fetchRuns(userId), {
     refreshInterval: 30_000,
   });
@@ -56,7 +57,8 @@ export default function AutomationPage() {
 
         {!isAuthenticated && (
           <div className="rounded-lg border border-edge bg-bg-surface/80 p-4 text-sm text-content-secondary">
-            Optional Auth0 — continue as <span className="font-mono text-content-mono">demo-local-user</span>{" "}
+            Optional Auth0 — continue as seeded rep{" "}
+            <span className="font-mono text-content-mono">{DEMO_REP_ID}</span>{" "}
             or{" "}
             <button
               type="button"

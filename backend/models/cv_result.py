@@ -20,3 +20,4 @@ class CVResult(Base):
     analysis_date = Column(Date)
     raw_chip_url = Column(Text)
     masked_chip_url = Column(Text)
+    gemini_analysis_text = Column(Text)

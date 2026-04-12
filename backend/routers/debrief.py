@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,11 +15,7 @@ from services.user_service import get_user_settings
 router = APIRouter()
 
 
-@router.get("/debrief/{user_id}")
-async def get_latest_debrief(
-    user_id: str,
-    session: Annotated[AsyncSession, Depends(get_db)],
-):
+async def _latest_debrief_payload(session: AsyncSession, user_id: str) -> dict:
     r = await session.execute(
         select(LoginDebrief)
         .where(LoginDebrief.user_id == user_id)
@@ -33,6 +29,23 @@ async def get_latest_debrief(
         "script_text": row.script_text,
         "elevenlabs_audio_url": row.elevenlabs_audio_url,
     }
+
+
+@router.get("/debrief")
+async def get_latest_debrief_query(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user_id: str = Query(..., min_length=1, max_length=512),
+):
+    """Prefer this for user IDs that contain `@` or other path-sensitive characters."""
+    return await _latest_debrief_payload(session, user_id)
+
+
+@router.get("/debrief/{user_id}")
+async def get_latest_debrief(
+    user_id: str,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await _latest_debrief_payload(session, user_id)
 
 
 @router.post("/debrief/generate")

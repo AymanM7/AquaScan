@@ -11,10 +11,13 @@ from fastapi.responses import StreamingResponse
 
 from config import app_settings
 from schemas.building import BuildingDetail
+from schemas.states import StateProfile
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-3-5-sonnet-20241022"
+
+def _model() -> str:
+    return (app_settings.ANTHROPIC_MODEL or "claude-sonnet-4-20250514").strip()
 
 
 def _client() -> anthropic.Anthropic:
@@ -109,7 +112,7 @@ def stream_deal_memo(building: BuildingDetail, mode: str) -> StreamingResponse:
     def generate():
         try:
             with client.messages.stream(
-                model=MODEL,
+                model=_model(),
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
             ) as stream:
@@ -176,7 +179,7 @@ def generate_boardroom(building: BuildingDetail) -> dict[str, Any]:
         raise RuntimeError("ANTHROPIC_API_KEY missing")
     client = _client()
     response = client.messages.create(
-        model=MODEL,
+        model=_model(),
         max_tokens=1200,
         system=BOARDROOM_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": build_boardroom_prompt(building)}],
@@ -210,8 +213,47 @@ Return ONLY the script text. No labels, no stage directions.
 """
     client = _client()
     response = client.messages.create(
-        model=MODEL,
+        model=_model(),
         max_tokens=200,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text.strip()
+
+
+def generate_state_verdict_sync(profile_a: StateProfile, profile_b: StateProfile) -> str:
+    """Phase 09 — market verdict for two state profiles."""
+    if not app_settings.ANTHROPIC_API_KEY:
+        return (
+            f"{profile_a.state} vs {profile_b.state}: {profile_a.state} leads on modeled opportunity volume "
+            f"({profile_a.total_annual_opportunity_gallons:,.0f} gal) while {profile_b.state} shows "
+            f"stronger regulatory/incentive tailwinds (top incentive ${profile_b.top_incentive_value_usd:,}). "
+            "Deploy volume where roofs concentrate; pilot high-velocity incentive markets in parallel."
+        )
+    prompt = f"""
+Compare two US states for commercial roof rainwater reuse sales strategy. Return 3-4 sentences only.
+
+State {profile_a.state}:
+- Buildings >100k sqft: {profile_a.total_buildings_over_100k}
+- Annual opportunity gallons: {profile_a.total_annual_opportunity_gallons:,.0f}
+- Avg viability score: {profile_a.avg_viability_score:.1f}
+- Top incentive USD: {profile_a.top_incentive_value_usd:,}
+- Avg drought score: {profile_a.avg_drought_score:.1f}
+- Radar: {profile_a.radar_scores}
+
+State {profile_b.state}:
+- Buildings >100k sqft: {profile_b.total_buildings_over_100k}
+- Annual opportunity gallons: {profile_b.total_annual_opportunity_gallons:,.0f}
+- Avg viability score: {profile_b.avg_viability_score:.1f}
+- Top incentive USD: {profile_b.top_incentive_value_usd:,}
+- Avg drought score: {profile_b.avg_drought_score:.1f}
+- Radar: {profile_b.radar_scores}
+
+Name the winner for pipeline building vs compressed deal cycles. Be specific to these numbers.
+"""
+    client = _client()
+    response = client.messages.create(
+        model=_model(),
+        max_tokens=350,
         messages=[{"role": "user", "content": prompt}],
     )
     return response.content[0].text.strip()
@@ -248,7 +290,7 @@ Return ONLY the JSON object.
 """
     client = _client()
     response = client.messages.create(
-        model=MODEL,
+        model=_model(),
         max_tokens=800,
         messages=[{"role": "user", "content": scripts_prompt}],
     )

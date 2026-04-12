@@ -24,7 +24,7 @@ export function AlertTicker({ state }: { state: string }) {
     );
   }
   const text = items
-    .map((a) => `${a.city || a.state} · ${a.description} (${a.type})`)
+    .map((a) => `${a.city || a.state} · ${a.description ?? ""} (${a.type})`)
     .join("   •   ");
   const band = (
     <>

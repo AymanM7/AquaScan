@@ -80,10 +80,29 @@ RainUSE Nexus is an **autonomous water-opportunity intelligence system** for Gru
    **Smoke checks:**
 
    ```bash
+   curl -s "http://localhost:8000/health" | jq .
+   # expect: "service": "rainuse-nexus", "api_version": "1.0.0"
+   # If you only see {"status":"ok"} or api_version is missing, another process owns :8000 — see troubleshooting below.
+
    curl "http://localhost:8000/api/buildings?state=TX" | jq '.count'    # expect 55
    curl "http://localhost:8000/api/alerts?state=TX" | jq '.count'       # expect 15+
    curl "http://localhost:8000/api/states/TX/vs/PA" | jq '.TX.avg_viability_score'
-   curl "http://localhost:8000/health"
+   curl -s "http://localhost:8000/api/debrief?user_id=demo-local-user" | jq .
+   ```
+
+   **Troubleshooting: `404` on `/api/debrief`, `/api/settings/…`, etc.**
+
+   That almost always means the browser is **not** talking to this repo’s FastAPI app (missing API keys would not produce route-level `404`). Check:
+
+   ```bash
+   curl -s "http://localhost:8000/health"
+   curl -s "http://localhost:8000/openapi.json" | jq '.info.version, (.paths | keys | length)'
+   ```
+
+   You should see `rainuse-nexus` in `/health` and **many** paths (not `1`). If not, find what is bound to the port and stop it, then start `uvicorn` again from `backend/`:
+
+   ```bash
+   lsof -nP -iTCP:8000 -sTCP:LISTEN
    ```
 
    **Portfolio** example (ticker slug): `curl "http://localhost:8000/api/portfolio/amzn"`

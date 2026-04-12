@@ -26,7 +26,7 @@ export type AlertEvent = {
   city: string | null;
   building_ids: string[];
   score_delta: number | null;
-  description: string;
+  description: string | null;
   source: string;
   event_timestamp: string;
 };

@@ -1,6 +1,7 @@
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 broker = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
@@ -26,4 +27,12 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     worker_prefetch_multiplier=1,
+    beat_schedule={
+        "rainuse-weekly-territory-scan": {
+            "task": "tasks.scan_territory.run_territory_scan",
+            "schedule": crontab(hour=6, minute=0, day_of_week=1),
+            "args": [os.getenv("AUTOMATION_DEFAULT_USER_ID", "demo-rep")],
+            "kwargs": {"demo_mode": False},
+        },
+    },
 )

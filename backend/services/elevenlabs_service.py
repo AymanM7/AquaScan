@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 import time
 
@@ -70,4 +71,5 @@ async def generate_debrief_audio(script: str, voice_id: str, user_id: str) -> st
         except Exception as e:
             logger.exception("S3 upload failed: %s", e)
 
-    return "https://example.com/rainuse/debrief-placeholder.mp3"
+    b64 = base64.standard_b64encode(audio_bytes).decode("ascii")
+    return f"data:audio/mpeg;base64,{b64}"

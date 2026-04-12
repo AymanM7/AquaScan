@@ -1,110 +1,110 @@
 "use client";
 
-import { useAuth0 } from "@auth0/auth0-react";
-import { Pause, Play, X } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { apiJson } from "@/lib/api";
+import { DEMO_REP_ID } from "@/lib/demoMode";
+import { ONBOARDING_COOKIE } from "@/lib/onboarding-cookie";
 
-type Debrief = { script_text: string | null; elevenlabs_audio_url: string | null };
+type DebriefPayload = {
+  script_text: string | null;
+  elevenlabs_audio_url: string | null;
+};
+
+function isOnboarded(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie.split(";").some((c) => c.trim().startsWith(`${ONBOARDING_COOKIE}=1`));
+}
 
 export function ElevenLabsDebriefPlayer() {
-  const { user, isAuthenticated } = useAuth0();
-  const userId = user?.sub ?? "";
-  const [debrief, setDebrief] = useState<Debrief | null>(null);
-  const [visible, setVisible] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const canFetch = isAuthenticated && !!userId;
+  const [data, setData] = useState<DebriefPayload | null>(null);
+  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!canFetch) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const d = await apiJson<Debrief>(`/api/debrief/${encodeURIComponent(userId)}`);
-        if (!cancelled) setDebrief(d);
-      } catch {
-        if (!cancelled) setDebrief(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [canFetch, userId]);
+    setReady(isOnboarded());
+  }, []);
 
-  useEffect(() => {
-    if (!canFetch) return;
-    const t = window.setTimeout(() => setVisible(true), 400);
-    return () => clearTimeout(t);
-  }, [canFetch]);
-
-  const transcript = useMemo(() => debrief?.script_text ?? "", [debrief]);
-
-  useEffect(() => {
-    if (!debrief?.elevenlabs_audio_url) {
-      audioRef.current = null;
-      return;
+  const load = useCallback(async () => {
+    if (!isOnboarded()) return;
+    try {
+      const qs = new URLSearchParams({ user_id: DEMO_REP_ID });
+      const d = await apiJson<DebriefPayload>(`/api/debrief?${qs.toString()}`);
+      setData(d);
+    } catch {
+      setData(null);
     }
-    const a = new Audio(debrief.elevenlabs_audio_url);
-    a.volume = 0.4;
-    audioRef.current = a;
-    return () => {
-      a.pause();
-      if (audioRef.current === a) audioRef.current = null;
-    };
-  }, [debrief?.elevenlabs_audio_url]);
+  }, []);
 
-  if (!canFetch || !visible) return null;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const regenerate = async () => {
+    setLoading(true);
+    try {
+      const d = await apiJson<DebriefPayload>("/api/debrief/generate", {
+        method: "POST",
+        body: JSON.stringify({ user_id: DEMO_REP_ID }),
+      });
+      setData(d);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!ready) return null;
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="fixed bottom-4 left-4 z-[60] rounded-full border border-edge-active bg-bg-surface-2 px-3 py-2 text-xs text-accent-teal shadow-teal-glow"
+        onClick={() => setOpen(true)}
+      >
+        Debrief
+      </button>
+    );
+  }
 
   return (
-    <div className="fixed bottom-6 left-6 z-[100] w-[min(360px,calc(100vw-3rem))] rounded-xl border border-edge bg-bg-surface/90 p-3 text-xs text-content-primary shadow-teal-glow backdrop-blur">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="font-display text-sm font-semibold text-accent-teal">Intelligence debrief</div>
+    <div className="fixed bottom-4 left-4 z-[60] w-[min(100vw-2rem,22rem)] rounded-xl border border-edge bg-bg-surface/95 p-3 shadow-panel backdrop-blur">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-accent-teal">
+          Login debrief
+        </span>
         <button
           type="button"
-          className="rounded p-1 text-content-secondary hover:bg-bg-surface-2"
-          aria-label="Close debrief player"
-          onClick={() => setVisible(false)}
+          className="text-content-secondary hover:text-content-primary"
+          onClick={() => setOpen(false)}
+          aria-label="Close debrief panel"
         >
-          <X className="h-4 w-4" />
+          ✕
         </button>
       </div>
-      {!debrief?.elevenlabs_audio_url && (
-        <div className="animate-pulse text-content-secondary">Generating your briefing…</div>
+      {data?.elevenlabs_audio_url ? (
+        <audio controls className="w-full" src={data.elevenlabs_audio_url}>
+          <track kind="captions" />
+        </audio>
+      ) : (
+        <p className="text-xs text-content-secondary">No audio yet — generate a fresh debrief.</p>
       )}
-      {!!transcript && (
-        <div className="mb-3 max-h-24 overflow-y-auto text-content-secondary">{transcript}</div>
-      )}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded-md border border-edge px-2 py-1 hover:border-edge-active"
-          onClick={() => {
-            const a = audioRef.current;
-            if (!a) return;
-            if (playing) {
-              a.pause();
-              setPlaying(false);
-            } else {
-              void a.play().then(() => setPlaying(true)).catch(() => {});
-            }
-          }}
-        >
-          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          {playing ? "Pause" : "Play"}
-        </button>
-        <div className="flex flex-1 items-end gap-1">
-          {[0.35, 0.6, 0.45, 0.7].map((h, i) => (
-            <span
-              key={i}
-              className={playing ? "block w-1 animate-pulse rounded-sm bg-accent-teal" : "block w-1 rounded-sm bg-accent-teal/40"}
-              style={{ height: `${12 + h * 20}px`, animationDelay: `${i * 120}ms` }}
-            />
-          ))}
-        </div>
-      </div>
+      {data?.script_text ? (
+        <p className="mt-2 max-h-28 overflow-y-auto text-xs leading-relaxed text-content-secondary">
+          {data.script_text}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => void regenerate()}
+        className="mt-2 w-full rounded-lg border border-edge-active bg-bg-surface-2 py-2 text-xs font-semibold text-accent-teal hover:bg-bg-primary disabled:opacity-50"
+      >
+        {loading ? "Generating…" : "Regenerate debrief"}
+      </button>
     </div>
   );
 }

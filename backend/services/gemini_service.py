@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import TYPE_CHECKING
 
 import google.generativeai as genai
+import httpx
+from PIL import Image
 
 from config import app_settings
 from schemas.building import BuildingDetail
@@ -66,3 +69,40 @@ Return ONLY the classification string.
 """
     response = model.generate_content(prompt)
     return (response.text or "").strip().lower()
+
+
+def analyze_satellite_image_sync(
+    image_bytes: bytes,
+    mime_type: str,
+    building_name: str,
+    city: str,
+    state: str,
+) -> str:
+    """Vision pass on roof satellite chip — PHASE_06."""
+    _ensure()
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    img = Image.open(io.BytesIO(image_bytes))
+    prompt = f"""
+You are a commercial rooftop water-harvesting analyst. Describe this satellite/aerial chip for {building_name} in {city}, {state}.
+
+Return concise bullet points:
+- Roof material / condition cues (if visible)
+- Apparent roof area class (large commercial vs smaller)
+- Ponding / drainage risk hints
+- Adjacent impervious cover / stormwater context
+- Any obvious mechanical equipment (cooling infrastructure) on roof
+
+If the image is unclear, say what is uncertain. Max 180 words.
+"""
+    response = model.generate_content([prompt, img])
+    return (response.text or "").strip()
+
+
+async def fetch_image_bytes(url: str) -> tuple[bytes, str]:
+    if not url.startswith("http"):
+        raise ValueError("Image URL must be http(s)")
+    async with httpx.AsyncClient() as client:
+        r = await client.get(url, timeout=30.0)
+        r.raise_for_status()
+        mime = r.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+        return r.content, mime

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans, Space_Mono, Syne } from "next/font/google";
 
 import { Providers } from "@/components/providers/Providers";
+import { ElevenLabsDebriefPlayer } from "@/components/shared/ElevenLabsDebriefPlayer";
+import { WaterWasteMeter } from "@/components/shared/WaterWasteMeter";
 
 import "./globals.css";
 
@@ -27,9 +29,10 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RainUSE Nexus",
+  title: "RainUSE Nexus — Water Opportunity Intelligence Engine",
   description:
-    "Autonomous water-opportunity intelligence — discover, evaluate, and act without human initiation.",
+    "Autonomous prospecting for commercial water reuse — find, score, and close opportunities across the US.",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({
@@ -42,7 +45,11 @@ export default function RootLayout({
       <body
         className={`${syne.variable} ${ibmPlexSans.variable} ${spaceMono.variable} font-sans antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <WaterWasteMeter />
+          <ElevenLabsDebriefPlayer />
+        </Providers>
       </body>
     </html>
   );

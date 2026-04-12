@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,16 @@ async def get_settings(
     r = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
     row = r.scalar_one_or_none()
     if not row:
-        raise HTTPException(status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"})
+        return UserSettingsSchema(
+            user_id=user_id,
+            territory="DFW",
+            cadence="weekly",
+            score_threshold=75,
+            onboarding_complete=False,
+            rep_zip=None,
+            notification_email=True,
+            voice_model="rachel",
+        )
     return UserSettingsSchema(
         user_id=row.user_id,
         territory=row.territory or "DFW",

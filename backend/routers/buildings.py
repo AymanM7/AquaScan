@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from dataclasses import asdict
 from typing import Annotated
@@ -5,6 +6,7 @@ from typing import Annotated
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -17,8 +19,13 @@ from schemas.building import (
 )
 from services.building_service import get_building_detail, get_harvest_context, list_buildings
 from services.hydrology import compute_water_twin
+from models.cv_result import CVResult
 from services.claude_service import generate_boardroom, stream_deal_memo
-from services.gemini_service import generate_voice_pitch_sync
+from services.gemini_service import (
+    analyze_satellite_image_sync,
+    fetch_image_bytes,
+    generate_voice_pitch_sync,
+)
 from services.scoring import compute_full_score
 
 router = APIRouter()
@@ -146,6 +153,64 @@ async def api_building_boardroom(
     except Exception as e:
         logger.exception("Boardroom failed")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/building/{building_id}/analyze-image")
+async def api_get_satellite_analysis(
+    building_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    r = await session.execute(select(CVResult).where(CVResult.building_id == building_id))
+    cv = r.scalar_one_or_none()
+    if not cv or not cv.gemini_analysis_text:
+        return {"analysis": None, "cached": False}
+    return {"analysis": cv.gemini_analysis_text, "cached": True}
+
+
+@router.post("/building/{building_id}/analyze-image")
+async def api_analyze_satellite_image(
+    building_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    force: bool = Query(False),
+):
+    building = await get_building_detail(session, building_id)
+    if not building:
+        raise HTTPException(status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"})
+    r = await session.execute(select(CVResult).where(CVResult.building_id == building_id))
+    cv = r.scalar_one_or_none()
+    if not cv:
+        raise HTTPException(status_code=404, detail="No CV result for building")
+    if cv.gemini_analysis_text and not force:
+        return {"analysis": cv.gemini_analysis_text, "cached": True}
+    url = building.raw_chip_url or cv.raw_chip_url
+    if not url or not str(url).startswith("http"):
+        raise HTTPException(
+            status_code=422,
+            detail="No satellite chip URL available for vision analysis",
+        )
+    try:
+        image_bytes, mime = await fetch_image_bytes(str(url))
+    except Exception as e:
+        logger.warning("Image fetch failed: %s", e)
+        raise HTTPException(status_code=502, detail="Could not download satellite image") from e
+    try:
+        text = await asyncio.to_thread(
+            analyze_satellite_image_sync,
+            image_bytes,
+            mime,
+            building.name,
+            building.city,
+            building.state,
+        )
+    except RuntimeError as e:
+        logger.warning("Gemini unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="Vision service unavailable") from e
+    except Exception as e:
+        logger.exception("Vision analysis failed")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    cv.gemini_analysis_text = text
+    await session.commit()
+    return {"analysis": text, "cached": False}
 
 
 @router.post("/building/{building_id}/voice-script")

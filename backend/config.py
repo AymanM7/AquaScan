@@ -10,6 +10,7 @@ class AppSettings(BaseSettings):
     )
 
     ANTHROPIC_API_KEY: str | None = None
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
     GEMINI_API_KEY: str | None = None
     PERPLEXITY_API_KEY: str | None = None
     ELEVENLABS_API_KEY: str | None = None

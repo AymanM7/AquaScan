@@ -1,7 +1,21 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:8000";
+/**
+ * Next.js calls use paths like `/api/settings/...`. The env base must be the API **origin**
+ * only (e.g. `http://localhost:8000`). If someone sets `.../api`, we strip it so we never
+ * request `/api/api/...` (FastAPI returns `{"detail":"Not Found"}`).
+ */
+function resolveApiBase(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+    "http://localhost:8000";
+  let base = raw.replace(/\/+$/, "");
+  if (base.toLowerCase().endsWith("/api")) {
+    base = base.slice(0, -4).replace(/\/+$/, "");
+  }
+  return base || "http://localhost:8000";
+}
+
+const API_BASE = resolveApiBase();
 
 export function apiUrl(path: string): string {
   if (path.startsWith("http")) return path;
@@ -23,4 +37,9 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(text || res.statusText);
   }
   return res.json() as Promise<T>;
+}
+
+/** SWR default fetcher — keys are `/api/...` paths. */
+export function swrFetcher<T>(key: string): Promise<T> {
+  return apiJson<T>(key);
 }
