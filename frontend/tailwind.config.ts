@@ -40,6 +40,15 @@ const config: Config = {
       boxShadow: {
         "teal-glow": "0 0 20px rgba(0, 229, 204, 0.3)",
       },
+      keyframes: {
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+      },
+      animation: {
+        marquee: "marquee 45s linear infinite",
+      },
     },
   },
   plugins: [],

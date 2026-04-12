@@ -15,6 +15,7 @@ from models.cv_result import CVResult
 from models.financial import FinancialData
 from models.incentive_adapter import IncentiveAdapter
 from models.score import ViabilityScore
+from models.user import AutomationReport, AutomationRun, UserSettings
 from schemas.alerts import AlertEventSchema
 from schemas.building import BuildingDetail, BuildingSummary
 from services.hydrology import compute_water_twin
@@ -28,6 +29,12 @@ def _polygon_feature(poly_geojson_str: str | None) -> dict[str, Any]:
     except json.JSONDecodeError:
         geom = None
     return {"type": "Feature", "geometry": geom, "properties": {}}
+
+
+def _polygon_geometry(poly_geojson_str: str | None) -> dict[str, Any] | None:
+    feat = _polygon_feature(poly_geojson_str)
+    g = feat.get("geometry")
+    return g if isinstance(g, dict) else None
 
 
 def _default_incentive() -> dict[str, Any]:
@@ -76,7 +83,7 @@ def _summary_from_row(
         roof_sqft=row.roof_sqft,
         centroid_lat=float(row.lat or 0),
         centroid_lng=float(row.lon or 0),
-        polygon_geojson=_polygon_feature(row.poly_gj),
+        polygon_geojson=_polygon_geometry(row.poly_gj) or {"type": "Polygon", "coordinates": []},
         final_score=float(row.final_score or 0),
         wrai=float(row.wrai or 0),
         genome_archetype=row.genome_archetype or "",
@@ -223,8 +230,10 @@ async def get_building_detail(
             CVResult.roof_mask_url,
             CVResult.raw_chip_url,
             CVResult.masked_chip_url,
+            CVResult.roof_confidence,
             ClimateData.annual_rain_inches,
             ClimateData.drought_label,
+            ClimateData.drought_score,
             ClimateData.flood_zone,
             ClimateData.fema_flood_risk,
             FinancialData.water_rate_per_kgal,
@@ -284,9 +293,24 @@ async def get_building_detail(
 
     boxes = row.ct_boxes if isinstance(row.ct_boxes, list) else []
 
-    return BuildingDetail(
+    h2 = compute_water_twin(
+        roof_sqft=float(row.roof_sqft),
+        annual_rain_inches=float(row.annual_rain_inches or 0),
+        water_rate_per_kgal=float(row.water_rate_per_kgal or 4.5),
+        sewer_rate_per_kgal=float(row.sewer_rate_per_kgal or 5.1),
+        stormwater_fee_annual=float(row.stormwater_fee_annual or 0),
+        rebate_usd=float(inc.get("rebate_usd") or 0),
+        sales_tax_exempt=bool(inc.get("sales_tax_exempt")),
+        property_tax_exempt=bool(inc.get("property_tax_exempt")),
+    )
+
+    from services.scoring import hydro_deliberation_class, wrai_badge_label
+
+    detail = BuildingDetail(
         **base.model_dump(),
         area_confidence=float(row.area_confidence or 0),
+        roof_confidence=float(row.roof_confidence or 0),
+        drought_score=int(row.drought_score or 0),
         roof_mask_url=row.roof_mask_url,
         raw_chip_url=row.raw_chip_url,
         masked_chip_url=row.masked_chip_url,
@@ -316,7 +340,15 @@ async def get_building_detail(
         strategic_score=float(row.strategic_score or 0),
         confidence_composite=float(row.confidence_composite or 0),
         alert_events=alert_schemas,
+        wrai_badge=wrai_badge_label(float(row.wrai or 0)),
+        irr_pct=float(h2.irr_pct),
+        annual_savings_usd=float(h2.annual_savings_usd),
+        npv_20yr=float(h2.npv_20yr),
+        stormwater_fee_avoidance=float(h2.stormwater_fee_avoidance),
+        savings_curve=list(h2.savings_curve),
+        hydro_thesis="rain_roi",
     )
+    return detail.model_copy(update={"hydro_thesis": hydro_deliberation_class(detail)})
 
 
 async def get_harvest_context(
@@ -365,4 +397,87 @@ async def get_harvest_context(
         "rebate_usd": float(rebate or 0),
         "sales_tax_exempt": st,
         "property_tax_exempt": pt,
+    }
+
+
+def territory_to_state(territory: str) -> str:
+    if territory == "DFW":
+        return "TX"
+    return "TX"
+
+
+async def get_buildings_for_territory_scan(
+    session: AsyncSession, state: str
+) -> list[tuple[Building, ViabilityScore]]:
+    stmt = (
+        select(Building, ViabilityScore)
+        .join(ViabilityScore, ViabilityScore.building_id == Building.id)
+        .where(Building.state == state)
+    )
+    r = await session.execute(stmt)
+    return list(r.all())
+
+
+async def get_territory_summary(session: AsyncSession, user_id: str) -> dict[str, Any]:
+    r = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
+    us = r.scalar_one_or_none()
+    territory = us.territory if us else "DFW"
+    st = territory_to_state(territory)
+
+    top_stmt = (
+        select(
+            Building.id,
+            Building.name,
+            Building.city,
+            Building.roof_sqft,
+            ViabilityScore.final_score,
+            ClimateData.drought_label,
+            ClimateData.annual_rain_inches,
+        )
+        .join(ViabilityScore, ViabilityScore.building_id == Building.id)
+        .outerjoin(ClimateData, ClimateData.building_id == Building.id)
+        .where(Building.state == st)
+        .order_by(ViabilityScore.final_score.desc())
+        .limit(1)
+    )
+    top = (await session.execute(top_stmt)).mappings().first()
+
+    ar = await session.execute(
+        select(AlertEvent).order_by(AlertEvent.event_timestamp.desc()).limit(1)
+    )
+    latest = ar.scalar_one_or_none()
+
+    rc = await session.execute(
+        select(func.count())
+        .select_from(AutomationReport)
+        .join(AutomationRun, AutomationReport.run_id == AutomationRun.id)
+        .where(AutomationRun.user_id == user_id)
+    )
+    reports_pending = int(rc.scalar_one() or 0)
+
+    lr = await session.execute(
+        select(AutomationRun)
+        .where(AutomationRun.user_id == user_id)
+        .order_by(AutomationRun.run_at.desc())
+        .limit(1)
+    )
+    last_run = lr.scalar_one_or_none()
+    crossings = int(last_run.crossings_count or 0) if last_run else 0
+
+    drought_label = str(top["drought_label"] if top and top["drought_label"] else "D2")
+    rain = float(top["annual_rain_inches"] or 34.0) if top else 34.0
+    roof = int(top["roof_sqft"] or 0) if top else 0
+    top_gallons_m = (roof * rain * 0.623 * 0.85) / 1_000_000.0 if roof else 0.0
+
+    return {
+        "territory": territory,
+        "new_crossings": crossings,
+        "top_building_name": str(top["name"]) if top else "No buildings",
+        "top_building_city": str(top["city"]) if top else "",
+        "top_score": float(top["final_score"]) if top else 0.0,
+        "top_gallons_m": float(top_gallons_m),
+        "drought_label": drought_label,
+        "drought_description": f"{drought_label} conditions across metro monitoring grid",
+        "latest_event": (latest.description if latest else "No recent events"),
+        "reports_pending": reports_pending,
     }

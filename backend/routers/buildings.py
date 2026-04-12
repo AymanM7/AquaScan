@@ -1,15 +1,28 @@
 import uuid
+from dataclasses import asdict
 from typing import Annotated
+
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from schemas.building import BuildingDetail, BuildingListResponse, HarvestOutput
+from schemas.ai import MemoRequest
+from schemas.building import (
+    BuildingDetail,
+    BuildingListResponse,
+    HarvestOutput,
+    ViabilityScoreResponse,
+)
 from services.building_service import get_building_detail, get_harvest_context, list_buildings
 from services.hydrology import compute_water_twin
+from services.claude_service import generate_boardroom, stream_deal_memo
+from services.gemini_service import generate_voice_pitch_sync
+from services.scoring import compute_full_score
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/buildings", response_model=BuildingListResponse)
@@ -49,6 +62,20 @@ async def api_get_building(
     return detail
 
 
+@router.get("/building/{building_id}/score/recompute", response_model=ViabilityScoreResponse)
+async def api_recompute_score(
+    building_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    try:
+        r = await compute_full_score(building_id, session)
+        return ViabilityScoreResponse.model_validate(asdict(r))
+    except ValueError:
+        raise HTTPException(
+            status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"}
+        ) from None
+
+
 @router.get("/building/{building_id}/harvest", response_model=HarvestOutput)
 async def api_building_harvest(
     building_id: uuid.UUID,
@@ -85,3 +112,53 @@ async def api_building_harvest(
         npv_20yr=h.npv_20yr,
         savings_curve=h.savings_curve,
     )
+
+
+@router.post("/building/{building_id}/memo")
+async def api_building_memo(
+    building_id: uuid.UUID,
+    body: MemoRequest,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    building = await get_building_detail(session, building_id)
+    if not building:
+        raise HTTPException(status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"})
+    try:
+        return stream_deal_memo(building, body.mode)
+    except RuntimeError as e:
+        logger.warning("Memo unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="AI service unavailable") from e
+
+
+@router.post("/building/{building_id}/boardroom")
+async def api_building_boardroom(
+    building_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    building = await get_building_detail(session, building_id)
+    if not building:
+        raise HTTPException(status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"})
+    try:
+        return generate_boardroom(building)
+    except RuntimeError as e:
+        logger.warning("Boardroom unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="AI service unavailable") from e
+    except Exception as e:
+        logger.exception("Boardroom failed")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/building/{building_id}/voice-script")
+async def api_voice_script(
+    building_id: uuid.UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    building = await get_building_detail(session, building_id)
+    if not building:
+        raise HTTPException(status_code=404, detail={"error": "Not found", "code": "NOT_FOUND"})
+    try:
+        script = generate_voice_pitch_sync(building)
+        return {"script": script}
+    except RuntimeError as e:
+        logger.warning("Voice script unavailable: %s", e)
+        raise HTTPException(status_code=503, detail="AI service unavailable") from e

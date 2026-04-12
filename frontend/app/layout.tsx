@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Space_Mono, Syne } from "next/font/google";
+
+import { Providers } from "@/components/providers/Providers";
+
 import "./globals.css";
 
 const syne = Syne({
   subsets: ["latin"],
   variable: "--font-syne",
+  weight: ["400", "600", "700", "800"],
   display: "swap",
 });
 
@@ -38,7 +42,7 @@ export default function RootLayout({
       <body
         className={`${syne.variable} ${ibmPlexSans.variable} ${spaceMono.variable} font-sans antialiased`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

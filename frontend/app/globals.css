@@ -26,12 +26,33 @@
   --color-border-active: rgba(0, 229, 204, 0.6);
 }
 
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent-teal);
+  border-radius: 3px;
+}
+
 @layer base {
   html {
     @apply antialiased;
   }
   body {
     @apply min-h-screen bg-bg-primary font-sans text-content-primary;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-syne), system-ui, sans-serif;
   }
 }
 

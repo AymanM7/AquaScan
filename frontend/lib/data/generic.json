@@ -1,0 +1,11 @@
+{
+  "city_id": "generic",
+  "city_name": "Generic",
+  "state": "US",
+  "programs": [],
+  "sales_tax_exempt": false,
+  "property_tax_exempt": false,
+  "stormwater_credit_pct": 0.0,
+  "green_infra_grant_max": 0,
+  "notes": "Fallback adapter"
+}

@@ -30,6 +30,8 @@ class BuildingSummary(BaseModel):
 
 class BuildingDetail(BuildingSummary):
     area_confidence: float
+    roof_confidence: float = 0.0
+    drought_score: int = 0
     roof_mask_url: str | None
     raw_chip_url: str | None
     masked_chip_url: str | None
@@ -59,6 +61,24 @@ class BuildingDetail(BuildingSummary):
     strategic_score: float
     confidence_composite: float
     alert_events: list[AlertEventSchema]
+    wrai_badge: str = "Standard"
+    irr_pct: float = 0.0
+    annual_savings_usd: float = 0.0
+    npv_20yr: float = 0.0
+    stormwater_fee_avoidance: float = 0.0
+    savings_curve: list[dict[str, float | int]] = []
+    hydro_thesis: str = "rain_roi"
+
+
+class ViabilityScoreResponse(BaseModel):
+    final_score: float
+    score_raw: float
+    physical_score: float
+    economic_score: float
+    strategic_score: float
+    wrai: float
+    genome_archetype: str
+    confidence_composite: float
 
 
 class HarvestOutput(BaseModel):
